@@ -17,7 +17,7 @@ path = "src/main.rs"
 workspace = true
 
 [dependencies]
-bevy = { workspace = true, features = ["jpeg"] }
+bevy = { workspace = true, features = ["jpeg", "file_watcher"] }
 bevy_sprinkles = { version = "0.2.0", path = "../bevy_sprinkles" }
 serde = { workspace = true }
 ron = { workspace = true }
