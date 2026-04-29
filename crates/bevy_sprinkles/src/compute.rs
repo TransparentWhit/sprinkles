@@ -119,9 +119,20 @@ pub fn init_particle_compute_pipeline(
         ..linear_clamp_sampler
     });
 
-    let fallback_emission_buffer = render_device.create_buffer_with_data(
+    // dst and src need distinct buffers even when unused: WebGPU rejects two
+    // writable storage bindings aliasing the same buffer range, even if neither
+    // is read or written by the shader for this dispatch.
+    let fallback_emission_dst_buffer = render_device.create_buffer_with_data(
         &bevy::render::render_resource::BufferInitDescriptor {
-            label: Some("fallback_emission_buffer"),
+            label: Some("fallback_emission_dst_buffer"),
+            contents: &[0u8; 64],
+            usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
+        },
+    );
+
+    let fallback_emission_src_buffer = render_device.create_buffer_with_data(
+        &bevy::render::render_resource::BufferInitDescriptor {
+            label: Some("fallback_emission_src_buffer"),
             contents: &[0u8; 64],
             usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
         },
@@ -141,7 +152,10 @@ pub fn init_particle_compute_pipeline(
     });
     commands.insert_resource(GradientSampler(gradient_sampler));
     commands.insert_resource(CurveSampler(curve_sampler));
-    commands.insert_resource(FallbackEmissionBuffer(fallback_emission_buffer));
+    commands.insert_resource(FallbackEmissionBuffers {
+        dst: fallback_emission_dst_buffer,
+        src: fallback_emission_src_buffer,
+    });
     commands.insert_resource(FallbackTrailHistoryBuffer(fallback_trail_history_buffer));
 }
 
@@ -152,7 +166,10 @@ pub struct GradientSampler(pub bevy::render::render_resource::Sampler);
 pub struct CurveSampler(pub bevy::render::render_resource::Sampler);
 
 #[derive(Resource)]
-pub struct FallbackEmissionBuffer(pub Buffer);
+pub struct FallbackEmissionBuffers {
+    pub dst: Buffer,
+    pub src: Buffer,
+}
 
 #[derive(Resource)]
 pub(crate) struct FallbackTrailHistoryBuffer(pub(crate) Buffer);
@@ -179,7 +196,7 @@ pub fn prepare_particle_compute_bind_groups(
     gpu_images: Res<RenderAssets<GpuImage>>,
     fallback_gradient_texture: Option<Res<FallbackGradientTexture>>,
     fallback_curve_texture: Option<Res<FallbackCurveTexture>>,
-    fallback_emission_buffer: Res<FallbackEmissionBuffer>,
+    fallback_emission_buffers: Res<FallbackEmissionBuffers>,
     fallback_trail_history_buffer: Res<FallbackTrailHistoryBuffer>,
     gradient_sampler: Res<GradientSampler>,
     curve_sampler: Res<CurveSampler>,
@@ -322,8 +339,8 @@ pub fn prepare_particle_compute_bind_groups(
             .and_then(|h| gpu_storage_buffers.get(h))
             .map(|b| &b.buffer);
 
-        let dst_binding = dst_buffer.unwrap_or(&fallback_emission_buffer.0);
-        let src_binding = src_buffer.unwrap_or(&fallback_emission_buffer.0);
+        let dst_binding = dst_buffer.unwrap_or(&fallback_emission_buffers.dst);
+        let src_binding = src_buffer.unwrap_or(&fallback_emission_buffers.src);
 
         let trail_history_buffer = emitter_data
             .trail_history_buffer_handle
