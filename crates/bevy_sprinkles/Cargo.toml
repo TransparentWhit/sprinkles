@@ -25,3 +25,6 @@ bytemuck = { workspace = true }
 bitflags = { workspace = true }
 paste = { workspace = true }
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-time = "1"
+
