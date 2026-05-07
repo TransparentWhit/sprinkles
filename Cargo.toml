@@ -21,7 +21,6 @@ bevy = { version = "0.18.0", default-features = false, features = [
     "ui_api",
     "ui_bevy_render",
     "picking",
-    "file_watcher",
     # "reflect_auto_register",
 ] }
 serde = { version = "1", features = ["derive"] }
