@@ -1,4 +1,4 @@
-use bevy::input_focus::InputFocus;
+use bevy::input_focus::{FocusCause, InputFocus};
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy_sprinkles::prelude::*;
@@ -290,7 +290,7 @@ fn on_add_emitter(
     let Some(handle) = &editor_state.current_project else {
         return;
     };
-    let Some(asset) = assets.get_mut(handle) else {
+    let Some(mut asset) = assets.get_mut(handle) else {
         return;
     };
 
@@ -325,7 +325,7 @@ fn on_add_collider(
     let Some(handle) = &editor_state.current_project else {
         return;
     };
-    let Some(asset) = assets.get_mut(handle) else {
+    let Some(mut asset) = assets.get_mut(handle) else {
         return;
     };
 
@@ -396,7 +396,7 @@ fn on_item_menu_change(
             let Some(handle) = &editor_state.current_project else {
                 return;
             };
-            let Some(asset) = assets.get_mut(handle) else {
+            let Some(mut asset) = assets.get_mut(handle) else {
                 return;
             };
 
@@ -671,7 +671,7 @@ fn focus_rename_input(
             continue;
         }
         if let Some(inner) = find_inner_text_edit(entity, &children_query, &text_edits) {
-            focus.0 = Some(inner);
+            focus.set(inner, FocusCause::Navigated);
             rename_input.focused = true;
         }
     }
@@ -727,7 +727,7 @@ fn on_rename_commit(
 
     if !new_name.is_empty() {
         if let Some(handle) = &editor_state.current_project {
-            if let Some(asset) = assets.get_mut(handle) {
+            if let Some(mut asset) = assets.get_mut(handle) {
                 match item.kind {
                     Inspectable::Emitter => {
                         if let Some(emitter) = asset.emitters.get_mut(item.index as usize) {
@@ -789,7 +789,7 @@ fn on_delete_confirmed(
     let Some(handle) = &editor_state.current_project else {
         return;
     };
-    let Some(asset) = assets.get_mut(handle) else {
+    let Some(mut asset) = assets.get_mut(handle) else {
         return;
     };
 

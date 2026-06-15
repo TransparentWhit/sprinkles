@@ -290,8 +290,8 @@ fn setup_variant_edit(
             .spawn((
                 Text::new(&label),
                 TextFont {
-                    font: font.clone(),
-                    font_size: TEXT_SIZE_SM,
+                    font: font.clone().into(),
+                    font_size: TEXT_SIZE_SM.into(),
                     weight: FontWeight::MEDIUM,
                     ..default()
                 },
@@ -820,8 +820,8 @@ fn spawn_labeled_field(
         .with_child((
             Text::new(label),
             TextFont {
-                font,
-                font_size: TEXT_SIZE_SM,
+                font: font.into(),
+                font_size: TEXT_SIZE_SM.into(),
                 weight: FontWeight::MEDIUM,
                 ..default()
             },

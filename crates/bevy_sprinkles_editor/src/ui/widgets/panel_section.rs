@@ -118,7 +118,7 @@ pub fn panel_section(props: PanelSectionProps, asset_server: &AssetServer) -> im
                     Text::new(title),
                     TextFont {
                         font: font.into(),
-                        font_size: TEXT_SIZE,
+                        font_size: TEXT_SIZE.into(),
                         weight: FontWeight::SEMIBOLD,
                         ..default()
                     },

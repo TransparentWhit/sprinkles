@@ -103,7 +103,7 @@ pub fn checkbox(props: CheckboxProps, asset_server: &AssetServer) -> impl Bundle
                 Text::new(label),
                 TextFont {
                     font: font.into(),
-                    font_size: TEXT_SIZE,
+                    font_size: TEXT_SIZE.into(),
                     ..default()
                 },
                 TextColor(TEXT_BODY_COLOR.into()),

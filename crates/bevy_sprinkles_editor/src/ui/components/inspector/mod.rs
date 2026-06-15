@@ -355,7 +355,7 @@ fn panel_title(asset_server: &AssetServer) -> impl Bundle {
                         Text::new(""),
                         TextFont {
                             font: font.into(),
-                            font_size: TEXT_SIZE_LG,
+                            font_size: TEXT_SIZE_LG.into(),
                             weight: FontWeight::SEMIBOLD,
                             ..default()
                         },
@@ -564,8 +564,8 @@ pub(super) fn spawn_labeled_combobox(
             wrapper.spawn((
                 Text::new(label),
                 TextFont {
-                    font: font.clone(),
-                    font_size: TEXT_SIZE_SM,
+                    font: font.clone().into(),
+                    font_size: TEXT_SIZE_SM.into(),
                     weight: FontWeight::MEDIUM,
                     ..default()
                 },

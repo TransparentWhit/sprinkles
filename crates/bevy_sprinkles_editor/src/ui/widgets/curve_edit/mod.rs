@@ -1006,7 +1006,7 @@ fn update_curve_visuals(
             if mat_node.0 != curve_edit_entity {
                 continue;
             }
-            if let Some(material) = curve_materials.get_mut(&material_node.0) {
+            if let Some(mut material) = curve_materials.get_mut(&material_node.0) {
                 *material =
                     CurveMaterial::from_channel(channel, state.curve_color(), state.fill_color());
             }

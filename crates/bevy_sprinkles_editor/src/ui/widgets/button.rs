@@ -344,8 +344,8 @@ fn setup_button(
                 parent.spawn((
                     Text::new(&config.content),
                     TextFont {
-                        font: font.clone(),
-                        font_size: TEXT_SIZE,
+                        font: font.clone().into(),
+                        font_size: TEXT_SIZE.into(),
                         weight: FontWeight::MEDIUM,
                         ..default()
                     },
@@ -361,8 +361,8 @@ fn setup_button(
                 parent.spawn((
                     Text::new(subtitle),
                     TextFont {
-                        font: font.clone(),
-                        font_size: TEXT_SIZE_SM,
+                        font: font.clone().into(),
+                        font_size: TEXT_SIZE_SM.into(),
                         ..default()
                     },
                     TextColor(TEXT_MUTED_COLOR.into()),

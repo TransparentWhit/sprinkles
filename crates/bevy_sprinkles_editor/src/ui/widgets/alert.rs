@@ -100,8 +100,8 @@ fn setup_alert(
             .spawn((
                 Text::new(first_text),
                 TextFont {
-                    font: font.clone(),
-                    font_size: TEXT_SIZE,
+                    font: font.clone().into(),
+                    font_size: TEXT_SIZE.into(),
                     weight: first_weight,
                     ..default()
                 },
@@ -118,8 +118,8 @@ fn setup_alert(
             let mut span_cmd = commands.spawn((
                 TextSpan::new(text),
                 TextFont {
-                    font: font.clone(),
-                    font_size: TEXT_SIZE,
+                    font: font.clone().into(),
+                    font_size: TEXT_SIZE.into(),
                     weight,
                     ..default()
                 },

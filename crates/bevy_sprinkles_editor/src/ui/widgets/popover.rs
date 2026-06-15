@@ -400,7 +400,7 @@ pub fn popover_header(props: PopoverHeaderProps, asset_server: &AssetServer) -> 
                 Text::new(title),
                 TextFont {
                     font: font.into(),
-                    font_size: TEXT_SIZE,
+                    font_size: TEXT_SIZE.into(),
                     weight: FontWeight::SEMIBOLD,
                     ..default()
                 },

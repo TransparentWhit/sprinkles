@@ -95,8 +95,8 @@ fn sidebar_button(parent: &mut ChildSpawnerCommands, tab: SidebarTab, asset_serv
             btn.spawn((
                 Text::new(tab.label()),
                 TextFont {
-                    font,
-                    font_size: TEXT_SIZE_SM,
+                    font: font.into(),
+                    font_size: TEXT_SIZE_SM.into(),
                     ..default()
                 },
                 TextColor(TEXT_BODY_COLOR.into()),

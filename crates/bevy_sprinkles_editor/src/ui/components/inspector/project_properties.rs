@@ -138,8 +138,8 @@ fn spawn_file_path_field(
             col.spawn((
                 Text::new("File path"),
                 TextFont {
-                    font: font.clone(),
-                    font_size: TEXT_SIZE_SM,
+                    font: font.clone().into(),
+                    font_size: TEXT_SIZE_SM.into(),
                     weight: FontWeight::MEDIUM,
                     ..default()
                 },
@@ -161,8 +161,8 @@ fn spawn_file_path_field(
                 wrapper.spawn((
                     Text::new(display_path),
                     TextFont {
-                        font: font.clone(),
-                        font_size: TEXT_SIZE,
+                        font: font.clone().into(),
+                        font_size: TEXT_SIZE.into(),
                         ..default()
                     },
                     TextColor(TEXT_MUTED_COLOR.into()),

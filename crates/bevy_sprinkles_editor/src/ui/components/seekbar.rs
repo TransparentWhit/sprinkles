@@ -62,8 +62,8 @@ pub fn seekbar(asset_server: &AssetServer) -> impl Bundle {
                 SeekbarElapsed,
                 Text::new("0.00"),
                 TextFont {
-                    font: font.clone(),
-                    font_size: LABEL_SIZE,
+                    font: font.clone().into(),
+                    font_size: LABEL_SIZE.into(),
                     font_features: tabular_figures.clone(),
                     weight: FontWeight::MEDIUM,
                     ..default()
@@ -117,8 +117,8 @@ pub fn seekbar(asset_server: &AssetServer) -> impl Bundle {
                 SeekbarDuration,
                 Text::new("0.00s"),
                 TextFont {
-                    font,
-                    font_size: LABEL_SIZE,
+                    font: font.into(),
+                    font_size: LABEL_SIZE.into(),
                     font_features: tabular_figures,
                     weight: FontWeight::MEDIUM,
                     ..default()

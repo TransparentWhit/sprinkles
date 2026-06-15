@@ -407,8 +407,8 @@ fn spawn_footnote(commands: &mut Commands, parent: Entity, asset_server: &AssetS
         .spawn((
             Text::new("Textures by "),
             TextFont {
-                font: font.clone(),
-                font_size: TEXT_SIZE_SM,
+                font: font.clone().into(),
+                font_size: TEXT_SIZE_SM.into(),
                 ..default()
             },
             TextColor(text_color),
@@ -419,8 +419,8 @@ fn spawn_footnote(commands: &mut Commands, parent: Entity, asset_server: &AssetS
         .spawn((
             TextSpan::new("Kenney"),
             TextFont {
-                font: font.clone(),
-                font_size: TEXT_SIZE_SM,
+                font: font.clone().into(),
+                font_size: TEXT_SIZE_SM.into(),
                 weight: FontWeight::MEDIUM,
                 ..default()
             },
@@ -434,8 +434,8 @@ fn spawn_footnote(commands: &mut Commands, parent: Entity, asset_server: &AssetS
         .spawn((
             TextSpan::new(" under CC0 license."),
             TextFont {
-                font,
-                font_size: TEXT_SIZE_SM,
+                font: font.into(),
+                font_size: TEXT_SIZE_SM.into(),
                 ..default()
             },
             TextColor(text_color),
@@ -542,8 +542,8 @@ fn spawn_file_content(
             TexturePathText(variant_edit),
             Text::new(&display_path),
             TextFont {
-                font,
-                font_size: TEXT_SIZE_SM,
+                font: font.into(),
+                font_size: TEXT_SIZE_SM.into(),
                 ..default()
             },
             TextColor(TEXT_MUTED_COLOR.into()),
@@ -746,7 +746,7 @@ fn poll_texture_file_pick(
 
     if let Some(folder) = assets_folder {
         if let Some(handle) = &editor_state.current_project {
-            if let Some(asset) = particle_assets.get_mut(handle) {
+            if let Some(mut asset) = particle_assets.get_mut(handle) {
                 if !asset.sprinkles_editor.assets_folder.contains(&folder) {
                     asset.sprinkles_editor.assets_folder.push(folder);
                 }

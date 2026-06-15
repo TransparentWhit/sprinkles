@@ -393,7 +393,7 @@ fn sync_trigger_swatch(
         let Ok(state) = states.get(swatch.0) else {
             continue;
         };
-        if let Some(material) = gradient_materials.get_mut(&mat_node.0) {
+        if let Some(mut material) = gradient_materials.get_mut(&mat_node.0) {
             *material = GradientMaterial::swatch(&state.gradient);
         }
     }
@@ -1018,7 +1018,7 @@ fn update_gradient_visuals(
             if mat_node.0 != gradient_edit_entity {
                 continue;
             }
-            if let Some(material) = gradient_materials.get_mut(&material_node.0) {
+            if let Some(mut material) = gradient_materials.get_mut(&material_node.0) {
                 *material = GradientMaterial::from_gradient(&state.gradient);
             }
         }

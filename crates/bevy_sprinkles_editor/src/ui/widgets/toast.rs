@@ -103,7 +103,7 @@ pub fn toast(
                 Text::new(content),
                 TextFont {
                     font: font.into(),
-                    font_size: TEXT_SIZE,
+                    font_size: TEXT_SIZE.into(),
                     ..default()
                 },
                 TextColor(TEXT_BODY_COLOR.with_alpha(0.).into()),
