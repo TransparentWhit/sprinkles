@@ -4,7 +4,8 @@ use bevy::input_focus::{FocusCause, InputFocus};
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::text::{
-    EditableText, EditableTextFilter, FontFeatureTag, FontFeatures, TextEdit, TextLayoutInfo,
+    EditableText, EditableTextFilter, FontFeatureTag, FontFeatures, TextCursorStyle, TextEdit,
+    TextLayoutInfo,
 };
 
 use bevy::ui::UiGlobalTransform;
@@ -421,6 +422,12 @@ fn setup_text_edit_input(
                 cursor_blink_period: Duration::from_millis(500),
                 ..default()
             },
+            TextCursorStyle {
+                color: TEXT_BODY_COLOR.into(),
+                selection_color: PRIMARY_COLOR.with_alpha(0.35).into(),
+                unfocused_selection_color: Color::NONE,
+                selected_text_color: None,
+            },
             TextFont {
                 font: font.clone().into(),
                 font_size: TEXT_SIZE.into(),
@@ -432,7 +439,6 @@ fn setup_text_edit_input(
             Node {
                 flex_grow: 1.0,
                 height: percent(100),
-                justify_content: JustifyContent::Center,
                 overflow: Overflow::clip(),
                 ..default()
             },
@@ -477,6 +483,7 @@ fn setup_text_edit_input(
                     TextColor(TEXT_BODY_COLOR.with_alpha(0.2).into()),
                     Node {
                         position_type: PositionType::Absolute,
+                        left: px(0),
                         ..default()
                     },
                     Pickable::IGNORE,
@@ -565,7 +572,7 @@ fn handle_suffix(
     parents: Query<&ChildOf>,
     configs: Query<&TextEditConfig>,
 ) {
-    const WRAPPER_PADDING: f32 = 8.0;
+    const WRAPPER_PADDING: f32 = 6.0;
     const PREFIX_EXTRA: f32 = AFFIX_SIZE as f32 + 6.0;
     for (entity, editable, layout_info, child_of) in &text_edits {
         let Some((_, mut node)) = suffix_nodes.iter_mut().find(|(link, _)| link.0 == entity) else {
