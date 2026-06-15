@@ -4,7 +4,6 @@ use bevy::input_focus::{FocusCause, InputFocus};
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::text::{EditableText, EditableTextFilter, FontFeatureTag, FontFeatures, TextEdit, TextLayoutInfo};
-use bevy::ui_widgets::EditableTextInputPlugin;
 
 use bevy::ui::UiGlobalTransform;
 use bevy::window::SystemCursorIcon;
@@ -40,8 +39,7 @@ const INPUT_HEIGHT: f32 = 28.0;
 const AFFIX_SIZE: u64 = 16;
 
 pub fn plugin(app: &mut App) {
-    app.add_plugins(EditableTextInputPlugin)
-        .add_systems(Update, setup_text_edit_input)
+    app.add_systems(Update, setup_text_edit_input)
         .add_systems(
             Update,
             (
