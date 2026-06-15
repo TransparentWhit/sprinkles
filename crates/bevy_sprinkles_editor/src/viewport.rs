@@ -137,20 +137,19 @@ pub fn setup_floor(
 ) {
     let mesh = meshes.add(Plane3d::new(*Dir3::Y, Vec2::splat(FLOOR_SIZE / 2.)));
     let material = materials.add(StandardMaterial {
-        base_color_texture: Some(asset_server.load_with_settings(
-            "embedded://sprinkles/assets/floor.png",
-            |settings: &mut _| {
-                *settings = ImageLoaderSettings {
-                    sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
+        base_color_texture: Some(
+            asset_server
+                .load_builder()
+                .with_settings(|settings: &mut ImageLoaderSettings| {
+                    settings.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
                         address_mode_u: ImageAddressMode::Repeat,
                         address_mode_v: ImageAddressMode::Repeat,
                         address_mode_w: ImageAddressMode::Repeat,
                         ..default()
-                    }),
-                    ..default()
-                }
-            },
-        )),
+                    });
+                })
+                .load("embedded://sprinkles/assets/floor.png"),
+        ),
         uv_transform: Affine2::from_scale(Vec2::splat(FLOOR_SIZE / FLOOR_TILE_SIZE)),
         perceptual_roughness: 1.0,
         ..default()

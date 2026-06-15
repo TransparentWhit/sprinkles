@@ -29,7 +29,6 @@ pub struct TextEditCommitEvent {
 #[derive(Component)]
 pub struct Placeholder {
     pub text: String,
-    pub color: Color,
 }
 
 #[derive(Component)]
@@ -484,7 +483,6 @@ fn setup_text_edit_input(
             commands.entity(text_input_entity).add_child(placeholder_entity);
             commands.entity(text_input_entity).insert(Placeholder {
                 text: placeholder_text,
-                color: TEXT_BODY_COLOR.with_alpha(0.2).into(),
             });
         }
 
