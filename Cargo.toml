@@ -1,6 +1,5 @@
 [workspace]
-members = ["crates/bevy_sprinkles", "benches"]
-exclude = ["crates/bevy_sprinkles_editor"]
+members = ["crates/bevy_sprinkles", "crates/bevy_sprinkles_editor", "benches"]
 resolver = "3"
 
 [workspace.lints.clippy]
@@ -22,6 +21,7 @@ bevy = { version = "0.19.0-rc.3", default-features = false, features = [
     "ui_api",
     "ui_bevy_render",
     "picking",
+    "bevy_ui_widgets",
     # "reflect_auto_register",
 ] }
 serde = { version = "1", features = ["derive"] }

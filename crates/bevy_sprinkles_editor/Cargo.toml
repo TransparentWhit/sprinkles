@@ -23,6 +23,5 @@ serde = { workspace = true }
 ron = { workspace = true }
 rfd = "0.15"
 Inflector = "0.11.4"
-bevy_ui_text_input = "0.7"
-bevy_easings = "0.18.0"
+bevy_easings = { git = "https://github.com/vleue/bevy_easings", branch = "bevy-0.19" }
 open = "5.3.3"
