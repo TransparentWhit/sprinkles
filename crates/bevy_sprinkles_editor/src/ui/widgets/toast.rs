@@ -52,11 +52,7 @@ impl ToastVariant {
 #[derive(Component, Default, Clone)]
 pub struct ToastDuration(pub Timer);
 
-pub fn toast(
-    variant: ToastVariant,
-    content: impl Into<String>,
-    duration: Duration,
-) -> impl Scene {
+pub fn toast(variant: ToastVariant, content: impl Into<String>, duration: Duration) -> impl Scene {
     let content: String = content.into();
     let icon = variant.icon();
     let bg = variant.bg_color().with_alpha(0.);

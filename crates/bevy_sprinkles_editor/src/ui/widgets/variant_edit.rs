@@ -531,67 +531,65 @@ fn handle_variant_edit_click(
             popover_entity,
         )))
         .insert(ChildOf(popover_entity));
-    commands
-        .entity(popover_entity)
-        .with_children(|parent| {
-            let combo_wrapper = parent
+    commands.entity(popover_entity).with_children(|parent| {
+        let combo_wrapper = parent
+            .spawn((
+                Node {
+                    width: percent(100),
+                    padding: UiRect::all(px(12.0)),
+                    border: if show_fields_container {
+                        UiRect::bottom(px(1.0))
+                    } else {
+                        UiRect::ZERO
+                    },
+                    ..default()
+                },
+                BorderColor::all(BORDER_COLOR),
+            ))
+            .id();
+        parent
+            .commands()
+            .spawn_scene(combobox_with_selected(options, config.selected_index))
+            .insert(VariantComboBox(entity))
+            .insert(ChildOf(combo_wrapper));
+
+        if show_fields_container {
+            let fields_container = parent
                 .spawn((
+                    VariantFieldsContainer(entity),
+                    Hovered::default(),
                     Node {
                         width: percent(100),
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(12.0),
                         padding: UiRect::all(px(12.0)),
-                        border: if show_fields_container {
-                            UiRect::bottom(px(1.0))
-                        } else {
-                            UiRect::ZERO
-                        },
+                        max_height: px(384.0),
+                        overflow: Overflow::scroll_y(),
                         ..default()
                     },
-                    BorderColor::all(BORDER_COLOR),
                 ))
                 .id();
+
             parent
                 .commands()
-                .spawn_scene(combobox_with_selected(options, config.selected_index))
-                .insert(VariantComboBox(entity))
-                .insert(ChildOf(combo_wrapper));
+                .entity(fields_container)
+                .with_child(scrollbar(fields_container));
 
-            if show_fields_container {
-                let fields_container = parent
-                    .spawn((
-                        VariantFieldsContainer(entity),
-                        Hovered::default(),
-                        Node {
-                            width: percent(100),
-                            flex_direction: FlexDirection::Column,
-                            row_gap: px(12.0),
-                            padding: UiRect::all(px(12.0)),
-                            max_height: px(384.0),
-                            overflow: Overflow::scroll_y(),
-                            ..default()
-                        },
-                    ))
-                    .id();
-
-                parent
-                    .commands()
-                    .entity(fields_container)
-                    .with_child(scrollbar(fields_container));
-
-                if has_auto_fields {
-                    if let Some(variant) = selected_variant {
-                        let mut cmds = parent.commands();
-                        spawn_variant_fields_for_entity(
-                            &mut cmds,
-                            fields_container,
-                            entity,
-                            &config.path,
-                            &variant.rows,
-                            &asset_server,
-                        );
-                    }
+            if has_auto_fields {
+                if let Some(variant) = selected_variant {
+                    let mut cmds = parent.commands();
+                    spawn_variant_fields_for_entity(
+                        &mut cmds,
+                        fields_container,
+                        entity,
+                        &config.path,
+                        &variant.rows,
+                        &asset_server,
+                    );
                 }
             }
-        });
+        }
+    });
 
     if let Some(btn) = button_entity {
         tracker.open(popover_entity, btn);
@@ -798,7 +796,10 @@ fn spawn_field_widget(
                 .with_label(label)
                 .with_variants(texture_ref_variants())
                 .with_content_mode(VariantContentMode::CustomContent);
-            commands.spawn_scene(variant_edit(props)).insert(binding).id()
+            commands
+                .spawn_scene(variant_edit(props))
+                .insert(binding)
+                .id()
         }
 
         FieldKind::String => commands

@@ -41,41 +41,41 @@ pub fn draw_pass_section() -> (impl Bundle, InspectorSection) {
         DrawPassSection,
         InspectorSection::new(
             "Draw pass",
+            vec![
                 vec![
-                    vec![
-                        InspectorItem::Variant {
-                            path: "draw_pass.mesh".into(),
-                            props: VariantEditProps::new("draw_pass.mesh")
-                                .with_variants(mesh_variants()),
-                        },
-                        InspectorItem::Variant {
-                            path: "draw_pass.material".into(),
-                            props: VariantEditProps::new("draw_pass.material")
-                                .with_variants(material_variants()),
-                        },
-                    ],
-                    vec![
-                        InspectorFieldProps::new("draw_pass.draw_order")
-                            .combobox(combobox_options_from_reflect::<DrawOrder>())
-                            .into(),
-                    ],
-                    vec![
-                        InspectorFieldProps::new("draw_pass.transform_align")
-                            .optional_combobox(transform_align_options())
-                            .into(),
-                    ],
-                    vec![
-                        InspectorFieldProps::new("draw_pass.shadow_caster")
-                            .bool()
-                            .into(),
-                    ],
-                    vec![
-                        InspectorFieldProps::new("draw_pass.use_local_coords")
-                            .bool()
-                            .into(),
-                    ],
+                    InspectorItem::Variant {
+                        path: "draw_pass.mesh".into(),
+                        props: VariantEditProps::new("draw_pass.mesh")
+                            .with_variants(mesh_variants()),
+                    },
+                    InspectorItem::Variant {
+                        path: "draw_pass.material".into(),
+                        props: VariantEditProps::new("draw_pass.material")
+                            .with_variants(material_variants()),
+                    },
                 ],
-            ),
+                vec![
+                    InspectorFieldProps::new("draw_pass.draw_order")
+                        .combobox(combobox_options_from_reflect::<DrawOrder>())
+                        .into(),
+                ],
+                vec![
+                    InspectorFieldProps::new("draw_pass.transform_align")
+                        .optional_combobox(transform_align_options())
+                        .into(),
+                ],
+                vec![
+                    InspectorFieldProps::new("draw_pass.shadow_caster")
+                        .bool()
+                        .into(),
+                ],
+                vec![
+                    InspectorFieldProps::new("draw_pass.use_local_coords")
+                        .bool()
+                        .into(),
+                ],
+            ],
+        ),
     )
 }
 

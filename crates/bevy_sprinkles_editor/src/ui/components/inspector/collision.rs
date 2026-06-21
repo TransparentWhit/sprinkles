@@ -7,9 +7,7 @@ use crate::ui::widgets::combobox::{ComboBoxChangeEvent, ComboBoxOptionData};
 use crate::ui::widgets::inspector_field::{InspectorFieldProps, fields_row, spawn_inspector_field};
 use crate::ui::widgets::text_edit::{TextEditProps, text_edit};
 
-use super::{
-    DynamicSectionContent, InspectorSection, section_needs_setup, spawn_labeled_combobox,
-};
+use super::{DynamicSectionContent, InspectorSection, section_needs_setup, spawn_labeled_combobox};
 use crate::ui::components::binding::{EmitterWriter, FieldBinding};
 use crate::ui::components::inspector::FieldKind;
 

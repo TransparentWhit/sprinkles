@@ -50,28 +50,28 @@ pub fn colors_section() -> (impl Bundle, InspectorSection) {
         ColorsSection,
         InspectorSection::new(
             "Colors",
+            vec![
                 vec![
-                    vec![
-                        InspectorItem::Variant {
-                            path: "colors.initial_color".into(),
-                            props: VariantEditProps::new("colors.initial_color")
-                                .with_variants(color_variants())
-                                .with_swatch_slot(true),
-                        },
-                        InspectorFieldProps::new("colors.color_over_lifetime")
-                            .gradient()
-                            .into(),
-                    ],
-                    vec![
-                        InspectorFieldProps::new("colors.alpha_over_lifetime")
-                            .curve()
-                            .into(),
-                        InspectorFieldProps::new("colors.emission_over_lifetime")
-                            .curve()
-                            .into(),
-                    ],
+                    InspectorItem::Variant {
+                        path: "colors.initial_color".into(),
+                        props: VariantEditProps::new("colors.initial_color")
+                            .with_variants(color_variants())
+                            .with_swatch_slot(true),
+                    },
+                    InspectorFieldProps::new("colors.color_over_lifetime")
+                        .gradient()
+                        .into(),
                 ],
-            ),
+                vec![
+                    InspectorFieldProps::new("colors.alpha_over_lifetime")
+                        .curve()
+                        .into(),
+                    InspectorFieldProps::new("colors.emission_over_lifetime")
+                        .curve()
+                        .into(),
+                ],
+            ],
+        ),
     )
 }
 

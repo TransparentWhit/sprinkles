@@ -511,24 +511,22 @@ fn handle_velocity_edit(
             popover_entity,
         )))
         .insert(ChildOf(popover_entity));
-    commands
-        .entity(popover_entity)
-        .with_children(|parent| {
-            parent.spawn(popover_content()).with_children(|content| {
-                content.spawn(fields_row()).with_children(|row| {
-                    spawn_inspector_field(
-                        row,
-                        InspectorFieldProps::new(&value_path).vector(VectorSuffixes::Range),
-                        &asset_server,
-                    );
-                });
-                content.spawn(fields_row()).with_children(|row| {
-                    spawn_inspector_field(
-                        row,
-                        InspectorFieldProps::new(&curve_path).curve(),
-                        &asset_server,
-                    );
-                });
+    commands.entity(popover_entity).with_children(|parent| {
+        parent.spawn(popover_content()).with_children(|content| {
+            content.spawn(fields_row()).with_children(|row| {
+                spawn_inspector_field(
+                    row,
+                    InspectorFieldProps::new(&value_path).vector(VectorSuffixes::Range),
+                    &asset_server,
+                );
+            });
+            content.spawn(fields_row()).with_children(|row| {
+                spawn_inspector_field(
+                    row,
+                    InspectorFieldProps::new(&curve_path).curve(),
+                    &asset_server,
+                );
             });
         });
+    });
 }

@@ -706,106 +706,103 @@ fn handle_trigger_click(
             popover_entity,
         )))
         .insert(ChildOf(popover_entity));
-    commands
-        .entity(popover_entity)
-        .with_children(|parent| {
-            parent
-                .spawn((
+    commands.entity(popover_entity).with_children(|parent| {
+        parent
+            .spawn((
+                Node {
+                    width: percent(100),
+                    padding: UiRect::all(px(CONTENT_PADDING)),
+                    border: UiRect::bottom(px(1.0)),
+                    column_gap: px(8.0),
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                BorderColor::all(BORDER_COLOR),
+            ))
+            .with_children(|row| {
+                let row_target = row.target_entity();
+                row.commands()
+                    .spawn_scene(combobox_with_label(presets, "Presets"))
+                    .insert(PresetComboBox(curve_edit_entity))
+                    .insert(ChildOf(row_target));
+                row.commands()
+                    .spawn_scene(combobox_with_selected(axes_options, axes_selected))
+                    .insert(AxesComboBox(curve_edit_entity))
+                    .insert(ChildOf(row_target));
+                let flip_wrapper = row
+                    .spawn((Node {
+                        flex_shrink: 0.0,
+                        ..default()
+                    },))
+                    .id();
+                row.commands()
+                    .spawn_scene(icon_button(
+                        IconButtonProps::new(ICON_ARROW_LEFT_RIGHT).variant(ButtonVariant::Default),
+                    ))
+                    .insert(FlipButton(curve_edit_entity))
+                    .insert(ChildOf(flip_wrapper));
+            });
+
+        parent
+            .spawn((
+                AxisTabs(curve_edit_entity),
+                Node {
+                    display: if is_per_axis {
+                        Display::Flex
+                    } else {
+                        Display::None
+                    },
+                    column_gap: px(3),
+                    padding: UiRect::new(
+                        px(CONTENT_PADDING),
+                        px(CONTENT_PADDING),
+                        px(CONTENT_PADDING),
+                        px(0),
+                    ),
+                    ..default()
+                },
+            ))
+            .with_children(|tabs| {
+                tabs.spawn((
                     Node {
-                        width: percent(100),
-                        padding: UiRect::all(px(CONTENT_PADDING)),
-                        border: UiRect::bottom(px(1.0)),
-                        column_gap: px(8.0),
-                        align_items: AlignItems::Center,
+                        width: percent(100.0),
+                        column_gap: px(3),
+                        padding: UiRect::all(px(3)),
+                        border: UiRect::all(px(1)),
+                        border_radius: BorderRadius::all(CORNER_RADIUS_LG),
                         ..default()
                     },
                     BorderColor::all(BORDER_COLOR),
                 ))
-                .with_children(|row| {
-                    let row_target = row.target_entity();
-                    row.commands()
-                        .spawn_scene(combobox_with_label(presets, "Presets"))
-                        .insert(PresetComboBox(curve_edit_entity))
-                        .insert(ChildOf(row_target));
-                    row.commands()
-                        .spawn_scene(combobox_with_selected(axes_options, axes_selected))
-                        .insert(AxesComboBox(curve_edit_entity))
-                        .insert(ChildOf(row_target));
-                    let flip_wrapper = row
-                        .spawn((Node {
-                            flex_shrink: 0.0,
-                            ..default()
-                        },))
-                        .id();
-                    row.commands()
-                        .spawn_scene(icon_button(
-                            IconButtonProps::new(ICON_ARROW_LEFT_RIGHT)
-                                .variant(ButtonVariant::Default),
-                        ))
-                        .insert(FlipButton(curve_edit_entity))
-                        .insert(ChildOf(flip_wrapper));
-                });
-
-            parent
-                .spawn((
-                    AxisTabs(curve_edit_entity),
-                    Node {
-                        display: if is_per_axis {
-                            Display::Flex
+                .with_children(|inner| {
+                    let inner_target = inner.target_entity();
+                    for axis in CurveAxis::ALL {
+                        let variant = if axis == active_axis {
+                            ButtonVariant::Active
                         } else {
-                            Display::None
-                        },
-                        column_gap: px(3),
-                        padding: UiRect::new(
-                            px(CONTENT_PADDING),
-                            px(CONTENT_PADDING),
-                            px(CONTENT_PADDING),
-                            px(0),
-                        ),
-                        ..default()
-                    },
-                ))
-                .with_children(|tabs| {
-                    tabs.spawn((
-                        Node {
-                            width: percent(100.0),
-                            column_gap: px(3),
-                            padding: UiRect::all(px(3)),
-                            border: UiRect::all(px(1)),
-                            border_radius: BorderRadius::all(CORNER_RADIUS_LG),
-                            ..default()
-                        },
-                        BorderColor::all(BORDER_COLOR),
-                    ))
-                    .with_children(|inner| {
-                        let inner_target = inner.target_entity();
-                        for axis in CurveAxis::ALL {
-                            let variant = if axis == active_axis {
-                                ButtonVariant::Active
-                            } else {
-                                ButtonVariant::Ghost
-                            };
-                            inner
-                                .commands()
-                                .spawn_scene(button(
-                                    ButtonProps::new(axis.label()).with_variant(variant),
-                                ))
-                                .insert(AxisTabButton {
-                                    curve_edit: curve_edit_entity,
-                                    axis,
-                                })
-                                .insert(ChildOf(inner_target))
-                                .entry::<Node>()
-                                .and_modify(|mut node| {
-                                    node.flex_grow = 1.0;
-                                    node.flex_basis = px(0.0);
-                                });
-                        }
-                    });
+                            ButtonVariant::Ghost
+                        };
+                        inner
+                            .commands()
+                            .spawn_scene(button(
+                                ButtonProps::new(axis.label()).with_variant(variant),
+                            ))
+                            .insert(AxisTabButton {
+                                curve_edit: curve_edit_entity,
+                                axis,
+                            })
+                            .insert(ChildOf(inner_target))
+                            .entry::<Node>()
+                            .and_modify(|mut node| {
+                                node.flex_grow = 1.0;
+                                node.flex_basis = px(0.0);
+                            });
+                    }
                 });
+            });
 
-            parent.spawn((CurveEditContent(curve_edit_entity), popover_content()));
-        });
+        parent.spawn((CurveEditContent(curve_edit_entity), popover_content()));
+    });
 }
 
 fn setup_curve_edit_content(

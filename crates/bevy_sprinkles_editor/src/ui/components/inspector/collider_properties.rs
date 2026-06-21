@@ -8,9 +8,7 @@ use crate::ui::widgets::inspector_field::fields_row;
 use crate::ui::widgets::text_edit::{TextEditCommitEvent, TextEditProps, text_edit};
 use crate::ui::widgets::vector_edit::{VectorEditProps, VectorSuffixes, vector_edit};
 
-use super::{
-    DynamicSectionContent, InspectorSection, section_needs_setup, spawn_labeled_combobox,
-};
+use super::{DynamicSectionContent, InspectorSection, section_needs_setup, spawn_labeled_combobox};
 use crate::ui::components::binding::{
     find_ancestor, find_ancestor_entity, format_f32, get_inspecting_collider,
     get_inspecting_collider_mut,

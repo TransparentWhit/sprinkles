@@ -280,20 +280,17 @@ fn dialog_scene(event: &OpenDialogEvent) -> impl Scene {
 
     let mut panel_children: Vec<Box<dyn SceneList>> = Vec::new();
     if event.title.is_some() || event.description.is_some() {
-        panel_children.push(Box::new(bsn_list![(dialog_header(
-            event.title.clone(),
-            event.description.clone()
-        ))]) as Box<dyn SceneList>);
+        panel_children.push(Box::new(bsn_list![
+            (dialog_header(event.title.clone(), event.description.clone()))
+        ]) as Box<dyn SceneList>);
     }
     panel_children.push(
         Box::new(bsn_list![(dialog_children_slot(event.content_padding))]) as Box<dyn SceneList>,
     );
     if event.action.is_some() || event.cancel.is_some() {
-        panel_children.push(Box::new(bsn_list![(dialog_footer(
-            event.cancel.clone(),
-            event.action.clone(),
-            variant
-        ))]) as Box<dyn SceneList>);
+        panel_children.push(Box::new(bsn_list![
+            (dialog_footer(event.cancel.clone(), event.action.clone(), variant))
+        ]) as Box<dyn SceneList>);
     }
     if event.has_close_button {
         panel_children.push(Box::new(bsn_list![(dialog_close())]) as Box<dyn SceneList>);

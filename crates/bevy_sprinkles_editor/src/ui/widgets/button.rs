@@ -234,7 +234,11 @@ fn button_base_parts(
     let is_column = direction == FlexDirection::Column;
 
     let node = Node {
-        width: if align_left { percent(100) } else { size.width() },
+        width: if align_left {
+            percent(100)
+        } else {
+            size.width()
+        },
         height: if is_column { Val::Auto } else { size.height() },
         padding: UiRect::axes(size.padding(), if is_column { px(6.0) } else { px(0.0) }),
         border: UiRect::all(variant.border()),
@@ -255,7 +259,9 @@ fn button_base_parts(
         ..default()
     };
 
-    let bg = variant.bg_color(false).with_alpha(variant.bg_opacity(false));
+    let bg = variant
+        .bg_color(false)
+        .with_alpha(variant.bg_opacity(false));
     let border_color = variant
         .border_color()
         .with_alpha(variant.border_opacity(false));

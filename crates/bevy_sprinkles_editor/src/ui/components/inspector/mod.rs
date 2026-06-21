@@ -205,7 +205,10 @@ fn setup_inspector_panel(
                                 spawn_section_with(emitter_content, props, extra, section);
 
                                 spawn_section(emitter_content, angle::angle_section());
-                                spawn_section(emitter_content, accelerations::accelerations_section());
+                                spawn_section(
+                                    emitter_content,
+                                    accelerations::accelerations_section(),
+                                );
                                 spawn_section(emitter_content, turbulence::turbulence_section());
                                 spawn_section(emitter_content, trail::trail_section());
                                 spawn_section(emitter_content, collision::collision_section());
@@ -455,7 +458,12 @@ pub(super) fn spawn_section(
     parts: (impl Bundle, InspectorSection),
 ) {
     let (extra, section) = parts;
-    spawn_section_with(content, inspector_section_props(&section.title), extra, section);
+    spawn_section_with(
+        content,
+        inspector_section_props(&section.title),
+        extra,
+        section,
+    );
 }
 
 pub(super) fn spawn_section_with(

@@ -1186,7 +1186,6 @@ fn handle_trigger_click(
         )))
         .insert(ChildOf(popover_entity));
     commands.entity(popover_entity).with_children(|parent| {
-
         parent.spawn((ColorPickerContent(picker_entity), popover_content()));
     });
 }

@@ -59,7 +59,10 @@ pub fn spawn_topbar(commands: &mut Commands, parent: Entity) {
     let selector = commands.spawn_scene(project_selector()).id();
     commands.entity(bar).add_children(&[selector]);
 
-    let right = commands.spawn_scene(topbar_right()).insert(ChildOf(bar)).id();
+    let right = commands
+        .spawn_scene(topbar_right())
+        .insert(ChildOf(bar))
+        .id();
     commands.spawn_scene(seekbar()).insert(ChildOf(right));
     commands
         .spawn_scene(playback_controls())

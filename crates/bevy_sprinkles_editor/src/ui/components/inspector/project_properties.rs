@@ -84,7 +84,9 @@ fn setup_properties_content(
             parent.spawn(fields_row()).with_children(|row| {
                 let row_target = row.target_entity();
                 row.commands()
-                    .spawn_scene(text_edit(TextEditProps::default().with_label("Project name")))
+                    .spawn_scene(text_edit(
+                        TextEditProps::default().with_label("Project name"),
+                    ))
                     .insert(FieldBinding::asset("name", FieldKind::String))
                     .insert(ChildOf(row_target));
             });
@@ -92,12 +94,22 @@ fn setup_properties_content(
             parent.spawn(fields_row()).with_children(|row| {
                 let row_target = row.target_entity();
                 row.commands()
-                    .spawn_scene(text_edit(TextEditProps::default().with_label("Submitted by")))
-                    .insert(FieldBinding::asset("authors.submitted_by", FieldKind::String))
+                    .spawn_scene(text_edit(
+                        TextEditProps::default().with_label("Submitted by"),
+                    ))
+                    .insert(FieldBinding::asset(
+                        "authors.submitted_by",
+                        FieldKind::String,
+                    ))
                     .insert(ChildOf(row_target));
                 row.commands()
-                    .spawn_scene(text_edit(TextEditProps::default().with_label("Inspired by")))
-                    .insert(FieldBinding::asset("authors.inspired_by", FieldKind::String))
+                    .spawn_scene(text_edit(
+                        TextEditProps::default().with_label("Inspired by"),
+                    ))
+                    .insert(FieldBinding::asset(
+                        "authors.inspired_by",
+                        FieldKind::String,
+                    ))
                     .insert(ChildOf(row_target));
             });
 
