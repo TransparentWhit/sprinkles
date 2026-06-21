@@ -3,7 +3,6 @@ pub mod data_panel;
 pub mod examples_dialog;
 pub mod fps_overlay;
 pub mod inspector;
-pub mod navigation;
 pub mod playback_controls;
 pub mod project_selector;
 pub mod seekbar;
