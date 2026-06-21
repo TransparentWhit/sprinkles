@@ -143,10 +143,10 @@ pub fn plugin(app: &mut App) {
         .add_systems(Update, (setup_variant_edit, sync_variant_edit_button));
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 pub struct EditorVariantEdit;
 
-#[derive(Component, Clone)]
+#[derive(Component, Default, Clone)]
 pub struct VariantEditConfig {
     pub path: String,
     pub label: Option<String>,
@@ -174,7 +174,7 @@ pub struct VariantFieldsContainer(pub Entity);
 #[derive(Component)]
 pub struct VariantComboBox(pub Entity);
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone)]
 struct VariantEditState {
     last_synced_index: Option<usize>,
 }
@@ -225,7 +225,7 @@ impl VariantEditProps {
     }
 }
 
-pub fn variant_edit(props: VariantEditProps) -> impl Bundle {
+pub fn variant_edit(props: VariantEditProps) -> impl Scene {
     let VariantEditProps {
         path,
         label,
@@ -237,30 +237,31 @@ pub fn variant_edit(props: VariantEditProps) -> impl Bundle {
         show_swatch_slot,
     } = props;
 
-    (
-        EditorVariantEdit,
-        VariantEditConfig {
-            path,
-            label,
-            popover_title,
-            variants,
-            selected_index,
-            popover_width,
-            content_mode,
-            show_swatch_slot,
-            initialized: false,
-        },
-        VariantEditState::default(),
-        PopoverTracker::default(),
+    let config = VariantEditConfig {
+        path,
+        label,
+        popover_title,
+        variants,
+        selected_index,
+        popover_width,
+        content_mode,
+        show_swatch_slot,
+        initialized: false,
+    };
+
+    bsn! {
+        EditorVariantEdit
+        template_value(config)
+        VariantEditState
+        PopoverTracker
         Node {
-            flex_direction: FlexDirection::Column,
-            row_gap: px(3.0),
+            flex_direction: { FlexDirection::Column },
+            row_gap: px(3),
             flex_grow: 1.0,
             flex_shrink: 1.0,
-            flex_basis: px(0.0),
-            ..default()
-        },
-    )
+            flex_basis: px(0),
+        }
+    }
 }
 
 #[derive(Component)]
@@ -290,8 +291,8 @@ fn setup_variant_edit(
             .spawn((
                 Text::new(&label),
                 TextFont {
-                    font: font.clone(),
-                    font_size: TEXT_SIZE_SM,
+                    font: font.clone().into(),
+                    font_size: TEXT_SIZE_SM.into(),
                     weight: FontWeight::MEDIUM,
                     ..default()
                 },
@@ -311,7 +312,8 @@ fn setup_variant_edit(
             .with_right_icon(ICON_MORE);
 
         let button_entity = commands
-            .spawn((VariantEditButton, button(button_props)))
+            .spawn_scene(button(button_props))
+            .insert(VariantEditButton)
             .id();
 
         if config.show_swatch_slot {
@@ -519,72 +521,75 @@ fn handle_variant_edit_click(
     };
 
     let popover_entity = commands
-        .spawn((VariantEditPopover, popover(popover_props)))
+        .spawn_scene(popover(popover_props))
+        .insert(VariantEditPopover)
         .id();
 
     commands
-        .entity(popover_entity)
-        .with_child(popover_header(
-            PopoverHeaderProps::new(popover_title, popover_entity),
-            &asset_server,
-        ))
-        .with_children(|parent| {
-            parent
+        .spawn_scene(popover_header(PopoverHeaderProps::new(
+            popover_title,
+            popover_entity,
+        )))
+        .insert(ChildOf(popover_entity));
+    commands.entity(popover_entity).with_children(|parent| {
+        let combo_wrapper = parent
+            .spawn((
+                Node {
+                    width: percent(100),
+                    padding: UiRect::all(px(12.0)),
+                    border: if show_fields_container {
+                        UiRect::bottom(px(1.0))
+                    } else {
+                        UiRect::ZERO
+                    },
+                    ..default()
+                },
+                BorderColor::all(BORDER_COLOR),
+            ))
+            .id();
+        parent
+            .commands()
+            .spawn_scene(combobox_with_selected(options, config.selected_index))
+            .insert(VariantComboBox(entity))
+            .insert(ChildOf(combo_wrapper));
+
+        if show_fields_container {
+            let fields_container = parent
                 .spawn((
+                    VariantFieldsContainer(entity),
+                    Hovered::default(),
                     Node {
                         width: percent(100),
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(12.0),
                         padding: UiRect::all(px(12.0)),
-                        border: if show_fields_container {
-                            UiRect::bottom(px(1.0))
-                        } else {
-                            UiRect::ZERO
-                        },
+                        max_height: px(384.0),
+                        overflow: Overflow::scroll_y(),
                         ..default()
                     },
-                    BorderColor::all(BORDER_COLOR),
                 ))
-                .with_child((
-                    VariantComboBox(entity),
-                    combobox_with_selected(options, config.selected_index),
-                ));
+                .id();
 
-            if show_fields_container {
-                let fields_container = parent
-                    .spawn((
-                        VariantFieldsContainer(entity),
-                        Hovered::default(),
-                        Node {
-                            width: percent(100),
-                            flex_direction: FlexDirection::Column,
-                            row_gap: px(12.0),
-                            padding: UiRect::all(px(12.0)),
-                            max_height: px(384.0),
-                            overflow: Overflow::scroll_y(),
-                            ..default()
-                        },
-                    ))
-                    .id();
+            parent
+                .commands()
+                .entity(fields_container)
+                .with_child(scrollbar(fields_container));
 
-                parent
-                    .commands()
-                    .entity(fields_container)
-                    .with_child(scrollbar(fields_container));
-
-                if has_auto_fields {
-                    if let Some(variant) = selected_variant {
-                        let mut cmds = parent.commands();
-                        spawn_variant_fields_for_entity(
-                            &mut cmds,
-                            fields_container,
-                            entity,
-                            &config.path,
-                            &variant.rows,
-                            &asset_server,
-                        );
-                    }
+            if has_auto_fields {
+                if let Some(variant) = selected_variant {
+                    let mut cmds = parent.commands();
+                    spawn_variant_fields_for_entity(
+                        &mut cmds,
+                        fields_container,
+                        entity,
+                        &config.path,
+                        &variant.rows,
+                        &asset_server,
+                    );
                 }
             }
-        });
+        }
+    });
 
     if let Some(btn) = button_entity {
         tracker.open(popover_entity, btn);
@@ -730,30 +735,29 @@ fn spawn_field_widget(
             if let Some(max) = field.max {
                 props = props.with_max(max);
             }
-            commands.spawn((binding, text_edit(props))).id()
+            commands.spawn_scene(text_edit(props)).insert(binding).id()
         }
 
         FieldKind::U32 | FieldKind::U32OrEmpty | FieldKind::OptionalU32 => commands
-            .spawn((
-                binding,
-                text_edit(TextEditProps::default().with_label(label).numeric_i32()),
+            .spawn_scene(text_edit(
+                TextEditProps::default().with_label(label).numeric_i32(),
             ))
+            .insert(binding)
             .id(),
 
         FieldKind::Bool => commands
-            .spawn((binding, checkbox(CheckboxProps::new(label), asset_server)))
+            .spawn_scene(checkbox(CheckboxProps::new(label)))
+            .insert(binding)
             .id(),
 
         FieldKind::Vector(suffixes) => commands
-            .spawn((
-                binding,
-                vector_edit(
-                    VectorEditProps::default()
-                        .with_label(label)
-                        .with_size(suffixes.vector_size())
-                        .with_suffixes(*suffixes),
-                ),
+            .spawn_scene(vector_edit(
+                VectorEditProps::default()
+                    .with_label(label)
+                    .with_size(suffixes.vector_size())
+                    .with_suffixes(*suffixes),
             ))
+            .insert(binding)
             .id(),
 
         FieldKind::ComboBox { options, .. } => {
@@ -761,7 +765,7 @@ fn spawn_field_widget(
                 .iter()
                 .map(|o| ComboBoxOptionData::new(&o.label).with_value(&o.value))
                 .collect();
-            spawn_labeled_field(
+            spawn_labeled_field_scene(
                 commands,
                 asset_server,
                 &label,
@@ -770,7 +774,7 @@ fn spawn_field_widget(
             )
         }
 
-        FieldKind::Color => spawn_labeled_field(
+        FieldKind::Color => spawn_labeled_field_scene(
             commands,
             asset_server,
             &label,
@@ -778,7 +782,7 @@ fn spawn_field_widget(
             color_picker(ColorPickerProps::new()),
         ),
 
-        FieldKind::Gradient => spawn_labeled_field(
+        FieldKind::Gradient => spawn_labeled_field_scene(
             commands,
             asset_server,
             &label,
@@ -792,43 +796,47 @@ fn spawn_field_widget(
                 .with_label(label)
                 .with_variants(texture_ref_variants())
                 .with_content_mode(VariantContentMode::CustomContent);
-            commands.spawn((binding, variant_edit(props))).id()
+            commands
+                .spawn_scene(variant_edit(props))
+                .insert(binding)
+                .id()
         }
 
         FieldKind::String => commands
-            .spawn((
-                binding,
-                text_edit(TextEditProps::default().with_label(label)),
-            ))
+            .spawn_scene(text_edit(TextEditProps::default().with_label(label)))
+            .insert(binding)
             .id(),
 
         FieldKind::Curve | FieldKind::AnimatedVelocity => commands.spawn_empty().id(),
     }
 }
 
-fn spawn_labeled_field(
+fn spawn_labeled_field_scene(
     commands: &mut Commands,
     asset_server: &AssetServer,
     label: &str,
     binding: FieldBinding,
-    widget: impl Bundle,
+    widget: impl Scene,
 ) -> Entity {
     let font: Handle<Font> = asset_server.load(FONT_PATH);
 
+    let wrapper = commands.spawn(labeled_field_wrapper()).id();
+    commands.spawn((
+        Text::new(label),
+        TextFont {
+            font: font.into(),
+            font_size: TEXT_SIZE_SM.into(),
+            weight: FontWeight::MEDIUM,
+            ..default()
+        },
+        TextColor(TEXT_MUTED_COLOR.into()),
+        ChildOf(wrapper),
+    ));
     commands
-        .spawn(labeled_field_wrapper())
-        .with_child((
-            Text::new(label),
-            TextFont {
-                font,
-                font_size: TEXT_SIZE_SM,
-                weight: FontWeight::MEDIUM,
-                ..default()
-            },
-            TextColor(TEXT_MUTED_COLOR.into()),
-        ))
-        .with_child((binding, widget))
-        .id()
+        .spawn_scene(widget)
+        .insert(binding)
+        .insert(ChildOf(wrapper));
+    wrapper
 }
 
 fn labeled_field_wrapper() -> impl Bundle {

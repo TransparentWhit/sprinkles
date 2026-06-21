@@ -1,13 +1,13 @@
 mod color_math;
 pub mod materials;
 
+use crate::ui::widgets::text_edit::set_text_input_value;
 use bevy::input_focus::InputFocus;
 use bevy::picking::events::{Press, Release};
 use bevy::picking::prelude::Pickable;
 use bevy::prelude::*;
+use bevy::text::EditableText;
 use bevy::ui::UiGlobalTransform;
-use bevy_ui_text_input::TextInputQueue;
-use bevy_ui_text_input::actions::{TextInputAction, TextInputEdit};
 
 use color_math::{hsv_to_rgb, parse_hex, rgb_to_hsv};
 pub use materials::{
@@ -57,7 +57,7 @@ pub fn plugin(app: &mut App) {
         );
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 pub struct EditorColorPicker;
 
 #[derive(Component, Clone)]
@@ -194,22 +194,21 @@ impl ColorPickerProps {
     }
 }
 
-pub fn color_picker(props: ColorPickerProps) -> impl Bundle {
+pub fn color_picker(props: ColorPickerProps) -> impl Scene {
     let ColorPickerProps { color, inline } = props;
 
-    (
-        EditorColorPicker,
-        ColorPickerState::from_rgba(color),
-        ColorPickerConfig { inline },
-        PopoverTracker::default(),
+    bsn! {
+        EditorColorPicker
+        template_value(ColorPickerState::from_rgba(color))
+        template_value(ColorPickerConfig { inline })
+        PopoverTracker
         Node {
-            flex_direction: FlexDirection::Column,
-            ..default()
-        },
-    )
+            flex_direction: { FlexDirection::Column },
+        }
+    }
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct ColorPickerConfig {
     inline: bool,
 }
@@ -582,14 +581,12 @@ fn setup_color_picker(
             let hex = state.to_hex();
 
             let trigger_entity = commands
-                .spawn((
-                    ColorPickerTrigger(entity),
-                    button(
-                        ButtonProps::new(hex)
-                            .with_variant(ButtonVariant::Default)
-                            .align_left(),
-                    ),
+                .spawn_scene(button(
+                    ButtonProps::new(hex)
+                        .with_variant(ButtonVariant::Default)
+                        .align_left(),
                 ))
+                .insert(ColorPickerTrigger(entity))
                 .id();
 
             commands.entity(entity).add_child(trigger_entity);
@@ -1033,7 +1030,7 @@ fn spawn_input_fields(
         true,
     );
 
-    parent
+    let field_wrapper = parent
         .spawn((
             ColorInputField {
                 picker: picker_entity,
@@ -1044,10 +1041,14 @@ fn spawn_input_fields(
                 ..default()
             },
         ))
-        .with_child(combobox_icon_with_selected(
+        .id();
+    parent
+        .commands()
+        .spawn_scene(combobox_icon_with_selected(
             vec!["Hex", "RGB", "HSB", "RAW"],
             state.input_mode.index(),
-        ));
+        ))
+        .insert(ChildOf(field_wrapper));
 }
 
 fn spawn_single_input_field(
@@ -1114,11 +1115,14 @@ fn spawn_single_input_field(
             column_node,
         ))
         .with_children(|col| {
-            col.spawn(text_edit(props));
+            let col_target = col.target_entity();
+            col.commands()
+                .spawn_scene(text_edit(props))
+                .insert(ChildOf(col_target));
             col.spawn((
                 Text::new(config.label),
                 TextFont {
-                    font_size: TEXT_SIZE,
+                    font_size: TEXT_SIZE.into(),
                     ..default()
                 },
                 TextColor(TEXT_MUTED_COLOR.into()),
@@ -1133,7 +1137,7 @@ fn spawn_single_input_field(
 fn handle_trigger_click(
     trigger: On<ButtonClickEvent>,
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    _asset_server: Res<AssetServer>,
     triggers: Query<&ColorPickerTrigger>,
     mut trackers: Query<&mut PopoverTracker>,
     existing_popovers: Query<(Entity, &ColorPickerPopover)>,
@@ -1160,29 +1164,28 @@ fn handle_trigger_click(
     activate_trigger(trigger.entity, &mut button_styles);
 
     let popover_entity = commands
-        .spawn((
-            ColorPickerPopover(picker_entity),
-            popover(
-                PopoverProps::new(trigger.entity)
-                    .with_placement(PopoverPlacement::RightStart)
-                    .with_padding(0.0)
-                    .with_z_index(150)
-                    .with_node(Node {
-                        width: px(POPOVER_WIDTH),
-                        ..default()
-                    }),
-            ),
+        .spawn_scene(popover(
+            PopoverProps::new(trigger.entity)
+                .with_placement(PopoverPlacement::RightStart)
+                .with_padding(0.0)
+                .with_z_index(150)
+                .with_node(Node {
+                    width: px(POPOVER_WIDTH),
+                    ..default()
+                }),
         ))
+        .insert(ColorPickerPopover(picker_entity))
         .id();
 
     tracker.open(popover_entity, trigger.entity);
 
+    commands
+        .spawn_scene(popover_header(PopoverHeaderProps::new(
+            "Color",
+            popover_entity,
+        )))
+        .insert(ChildOf(popover_entity));
     commands.entity(popover_entity).with_children(|parent| {
-        parent.spawn(popover_header(
-            PopoverHeaderProps::new("Color", popover_entity),
-            &asset_server,
-        ));
-
         parent.spawn((ColorPickerContent(picker_entity), popover_content()));
     });
 }
@@ -1291,7 +1294,7 @@ fn update_color_picker_visuals(
             if alpha_handle_mat.0 != picker_entity {
                 continue;
             }
-            if let Some(material) = checkerboard_materials.get_mut(&material_node.0) {
+            if let Some(mut material) = checkerboard_materials.get_mut(&material_node.0) {
                 material.color = Vec4::new(
                     current_color.red,
                     current_color.green,
@@ -1305,7 +1308,7 @@ fn update_color_picker_visuals(
             if preview_mat.0 != picker_entity {
                 continue;
             }
-            if let Some(material) = checkerboard_materials.get_mut(&material_node.0) {
+            if let Some(mut material) = checkerboard_materials.get_mut(&material_node.0) {
                 material.color = Vec4::new(
                     current_color.red,
                     current_color.green,
@@ -1319,7 +1322,7 @@ fn update_color_picker_visuals(
             if hsv_rect_mat_node.0 != picker_entity {
                 continue;
             }
-            if let Some(material) = hsv_rect_materials.get_mut(&material_node.0) {
+            if let Some(mut material) = hsv_rect_materials.get_mut(&material_node.0) {
                 material.hue = state.hue;
             }
         }
@@ -1328,7 +1331,7 @@ fn update_color_picker_visuals(
             if alpha_mat_node.0 != picker_entity {
                 continue;
             }
-            if let Some(material) = alpha_materials.get_mut(&material_node.0) {
+            if let Some(mut material) = alpha_materials.get_mut(&material_node.0) {
                 let (r, g, b) = hsv_to_rgb(state.hue, state.saturation, state.brightness.min(1.0));
                 material.color = Vec4::new(r, g, b, 1.0);
             }
@@ -1342,13 +1345,10 @@ fn handle_input_field_blur(
     mut commands: Commands,
     mut pickers: Query<&mut ColorPickerState>,
     input_fields: Query<&ColorInputField>,
-    text_inputs: Query<
-        &bevy_ui_text_input::TextInputBuffer,
-        With<crate::ui::widgets::text_edit::EditorTextEdit>,
-    >,
+    text_inputs: Query<&EditableText, With<EditorTextEdit>>,
     parents: Query<&ChildOf>,
 ) {
-    let current_focus = input_focus.0;
+    let current_focus = input_focus.get();
     let previous_focus = *last_focus;
     *last_focus = current_focus;
 
@@ -1359,7 +1359,7 @@ fn handle_input_field_blur(
         return;
     }
 
-    let Ok(buffer) = text_inputs.get(blurred_entity) else {
+    let Ok(editable) = text_inputs.get(blurred_entity) else {
         return;
     };
 
@@ -1371,7 +1371,7 @@ fn handle_input_field_blur(
         return;
     };
 
-    let text = buffer.get_text();
+    let text = editable.value().to_string();
     if text.is_empty() {
         return;
     }
@@ -1392,7 +1392,7 @@ fn sync_text_inputs_to_state(
     input_focus: Res<InputFocus>,
     pickers: Query<(Entity, &ColorPickerState), Changed<ColorPickerState>>,
     input_fields: Query<(Entity, &ColorInputField)>,
-    mut text_inputs: Query<(Entity, &mut TextInputQueue), With<EditorTextEdit>>,
+    mut text_inputs: Query<(Entity, &mut EditableText), With<EditorTextEdit>>,
     parents: Query<&ChildOf>,
 ) {
     for (picker_entity, state) in &pickers {
@@ -1403,14 +1403,13 @@ fn sync_text_inputs_to_state(
 
             let text = field.kind.format_value(state);
 
-            for (text_input_entity, mut queue) in &mut text_inputs {
-                if input_focus.0 == Some(text_input_entity) {
+            for (text_input_entity, mut editable) in &mut text_inputs {
+                if input_focus.get() == Some(text_input_entity) {
                     continue;
                 }
 
                 if is_descendant_of(text_input_entity, field_entity, &parents) {
-                    queue.add(TextInputAction::Edit(TextInputEdit::SelectAll));
-                    queue.add(TextInputAction::Edit(TextInputEdit::Paste(text.clone())));
+                    set_text_input_value(&mut editable, text.clone());
                 }
             }
         }
@@ -1477,7 +1476,7 @@ fn update_trigger_display(
             if swatch_mat.0 != picker_entity {
                 continue;
             }
-            if let Some(material) = checkerboard_materials.get_mut(&material_node.0) {
+            if let Some(mut material) = checkerboard_materials.get_mut(&material_node.0) {
                 material.color = Vec4::new(srgba.red, srgba.green, srgba.blue, srgba.alpha);
             }
         }

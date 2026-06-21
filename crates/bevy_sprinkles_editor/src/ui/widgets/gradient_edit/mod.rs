@@ -27,9 +27,10 @@ use crate::ui::widgets::popover::{
     EditorPopover, PopoverHeaderProps, PopoverPlacement, PopoverProps, PopoverTracker,
     activate_trigger, deactivate_trigger, popover, popover_header,
 };
-use crate::ui::widgets::text_edit::{TextEditCommitEvent, TextEditProps, text_edit};
-use bevy_ui_text_input::TextInputQueue;
-use bevy_ui_text_input::actions::{TextInputAction, TextInputEdit};
+use crate::ui::widgets::text_edit::{
+    TextEditCommitEvent, TextEditProps, set_text_input_value, text_edit,
+};
+use bevy::text::EditableText;
 
 const BAR_HEIGHT: f32 = 24.0;
 const HANDLE_SIZE: f32 = 24.0;
@@ -84,7 +85,7 @@ pub fn plugin(app: &mut App) {
         );
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 pub struct EditorGradientEdit;
 
 #[derive(Component, Clone, Default)]
@@ -140,7 +141,7 @@ impl GradientEditProps {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct GradientEditConfig {
     inline: bool,
     label: Option<String>,
@@ -163,25 +164,25 @@ const TRIGGER_SWATCH_BORDER_RADIUS: f32 = 4.0;
 const POPOVER_CONTENT_PADDING: f32 = 12.0;
 const POPOVER_CONTENT_WIDTH: f32 = 288.0;
 
-pub fn gradient_edit(props: GradientEditProps) -> impl Bundle {
+pub fn gradient_edit(props: GradientEditProps) -> impl Scene {
     let state = props
         .gradient
         .map(GradientEditState::from_gradient)
         .unwrap_or_default();
+    let config = GradientEditConfig {
+        inline: props.inline,
+        label: props.label,
+    };
 
-    (
-        EditorGradientEdit,
-        GradientEditConfig {
-            inline: props.inline,
-            label: props.label,
-        },
-        state,
-        PopoverTracker::default(),
+    bsn! {
+        EditorGradientEdit
+        template_value(config)
+        template_value(state)
+        PopoverTracker
         Node {
-            flex_direction: FlexDirection::Column,
-            ..default()
-        },
-    )
+            flex_direction: { FlexDirection::Column },
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -300,8 +301,8 @@ fn setup_gradient_edit(
                 .spawn((
                     Text::new(label_text),
                     TextFont {
-                        font: font.clone(),
-                        font_size: crate::ui::tokens::TEXT_SIZE_SM,
+                        font: font.clone().into(),
+                        font_size: crate::ui::tokens::TEXT_SIZE_SM.into(),
                         weight: bevy::text::FontWeight::MEDIUM,
                         ..default()
                     },
@@ -311,14 +312,12 @@ fn setup_gradient_edit(
             commands.entity(entity).add_child(label_entity);
 
             let trigger_entity = commands
-                .spawn((
-                    GradientEditTrigger(entity),
-                    button(
-                        ButtonProps::new("Gradient")
-                            .with_variant(ButtonVariant::Default)
-                            .align_left(),
-                    ),
+                .spawn_scene(button(
+                    ButtonProps::new("Gradient")
+                        .with_variant(ButtonVariant::Default)
+                        .align_left(),
                 ))
+                .insert(GradientEditTrigger(entity))
                 .id();
 
             commands.entity(entity).add_child(trigger_entity);
@@ -394,7 +393,7 @@ fn sync_trigger_swatch(
         let Ok(state) = states.get(swatch.0) else {
             continue;
         };
-        if let Some(material) = gradient_materials.get_mut(&mat_node.0) {
+        if let Some(mut material) = gradient_materials.get_mut(&mat_node.0) {
             *material = GradientMaterial::swatch(&state.gradient);
         }
     }
@@ -403,7 +402,7 @@ fn sync_trigger_swatch(
 fn handle_trigger_click(
     trigger: On<ButtonClickEvent>,
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    _asset_server: Res<AssetServer>,
     triggers: Query<&GradientEditTrigger>,
     mut trackers: Query<&mut PopoverTracker>,
     configs: Query<&GradientEditConfig>,
@@ -431,15 +430,13 @@ fn handle_trigger_click(
     activate_trigger(trigger.entity, &mut button_styles);
 
     let popover_entity = commands
-        .spawn((
-            GradientEditPopover(edit_entity),
-            popover(
-                PopoverProps::new(trigger.entity)
-                    .with_placement(PopoverPlacement::RightStart)
-                    .with_padding(0.0)
-                    .with_z_index(150),
-            ),
+        .spawn_scene(popover(
+            PopoverProps::new(trigger.entity)
+                .with_placement(PopoverPlacement::RightStart)
+                .with_padding(0.0)
+                .with_z_index(150),
         ))
+        .insert(GradientEditPopover(edit_entity))
         .id();
 
     tracker.open(popover_entity, trigger.entity);
@@ -450,12 +447,13 @@ fn handle_trigger_click(
         .and_then(|c| c.label.as_deref())
         .unwrap_or("Gradient");
 
+    commands
+        .spawn_scene(popover_header(PopoverHeaderProps::new(
+            header_title,
+            popover_entity,
+        )))
+        .insert(ChildOf(popover_entity));
     commands.entity(popover_entity).with_children(|parent| {
-        parent.spawn(popover_header(
-            PopoverHeaderProps::new(header_title, popover_entity),
-            &asset_server,
-        ));
-
         parent.spawn((
             GradientEditContent(edit_entity),
             Node {
@@ -530,13 +528,10 @@ fn setup_gradient_edit_content(
         commands.entity(content_entity).add_child(bar_entity);
 
         let section_entity = commands
-            .spawn((
-                StopsSection(edit_entity),
-                panel_section(
-                    PanelSectionProps::new("Stops").with_add_button(),
-                    &asset_server,
-                ),
+            .spawn_scene(panel_section(
+                PanelSectionProps::new("Stops").with_add_button(),
             ))
+            .insert(StopsSection(edit_entity))
             .id();
 
         commands.entity(section_entity).insert(Node {
@@ -733,7 +728,7 @@ fn spawn_stop_rows(
     parent: &mut ChildSpawnerCommands,
     gradient_edit: Entity,
     gradient: &ParticleGradient,
-    asset_server: &AssetServer,
+    _asset_server: &AssetServer,
 ) {
     for (i, stop) in gradient.stops.iter().enumerate() {
         let can_delete = gradient.stops.len() > 1;
@@ -750,22 +745,23 @@ fn spawn_stop_rows(
                 },
             ))
             .with_children(|row| {
-                row.spawn((
-                    StopPositionInput(StopRef::new(gradient_edit, i)),
-                    text_edit(
+                let row_target = row.target_entity();
+                row.commands()
+                    .spawn_scene(text_edit(
                         TextEditProps::default()
                             .numeric_i32()
                             .with_min(0.0)
                             .with_max(100.0)
                             .with_suffix("%")
                             .with_default_value(position_percent.to_string()),
-                    ),
-                ));
+                    ))
+                    .insert(StopPositionInput(StopRef::new(gradient_edit, i)))
+                    .insert(ChildOf(row_target));
 
-                row.spawn((
-                    StopColorPicker(StopRef::new(gradient_edit, i)),
-                    color_picker(ColorPickerProps::new().with_color(stop.color)),
-                ));
+                row.commands()
+                    .spawn_scene(color_picker(ColorPickerProps::new().with_color(stop.color)))
+                    .insert(StopColorPicker(StopRef::new(gradient_edit, i)))
+                    .insert(ChildOf(row_target));
 
                 let delete_variant = if can_delete {
                     ButtonVariant::Ghost
@@ -773,13 +769,13 @@ fn spawn_stop_rows(
                     ButtonVariant::Disabled
                 };
 
-                row.spawn((
-                    DeleteStopButton(StopRef::new(gradient_edit, i)),
-                    icon_button(
+                let row_target = row.target_entity();
+                row.commands()
+                    .spawn_scene(icon_button(
                         IconButtonProps::new(ICON_CLOSE).variant(delete_variant),
-                        asset_server,
-                    ),
-                ));
+                    ))
+                    .insert(DeleteStopButton(StopRef::new(gradient_edit, i)))
+                    .insert(ChildOf(row_target));
             });
     }
 }
@@ -824,22 +820,30 @@ fn on_handle_click(
     };
 
     let popover_entity = commands
-        .spawn((
-            HandleColorPopover(StopRef::new(handle.gradient_edit, handle.index)),
-            popover(
-                PopoverProps::new(event.event_target())
-                    .with_placement(PopoverPlacement::Top)
-                    .with_padding(12.0)
-                    .with_z_index(300),
-            ),
+        .spawn_scene(popover(
+            PopoverProps::new(event.event_target())
+                .with_placement(PopoverPlacement::Top)
+                .with_padding(12.0)
+                .with_z_index(300),
         ))
+        .insert(HandleColorPopover(StopRef::new(
+            handle.gradient_edit,
+            handle.index,
+        )))
         .id();
 
     commands.entity(popover_entity).with_children(|parent| {
-        parent.spawn((
-            HandleColorPicker(StopRef::new(handle.gradient_edit, handle.index)),
-            color_picker(ColorPickerProps::new().with_color(stop.color).inline()),
-        ));
+        let parent_target = parent.target_entity();
+        parent
+            .commands()
+            .spawn_scene(color_picker(
+                ColorPickerProps::new().with_color(stop.color).inline(),
+            ))
+            .insert(HandleColorPicker(StopRef::new(
+                handle.gradient_edit,
+                handle.index,
+            )))
+            .insert(ChildOf(parent_target));
     });
 }
 
@@ -1019,7 +1023,7 @@ fn update_gradient_visuals(
             if mat_node.0 != gradient_edit_entity {
                 continue;
             }
-            if let Some(material) = gradient_materials.get_mut(&material_node.0) {
+            if let Some(mut material) = gradient_materials.get_mut(&material_node.0) {
                 *material = GradientMaterial::from_gradient(&state.gradient);
             }
         }
@@ -1065,7 +1069,7 @@ fn update_stop_position_inputs(
     states: Query<(Entity, &GradientEditState), Changed<GradientEditState>>,
     position_inputs: Query<(&StopPositionInput, &Children)>,
     children_query: Query<&Children>,
-    mut text_queues: Query<&mut TextInputQueue>,
+    mut text_queues: Query<&mut EditableText>,
 ) {
     for (gradient_edit_entity, state) in &states {
         for (input, input_children) in &position_inputs {
@@ -1085,9 +1089,8 @@ fn update_stop_position_inputs(
                     continue;
                 };
                 for text_input_entity in wrapper_children.iter() {
-                    if let Ok(mut queue) = text_queues.get_mut(text_input_entity) {
-                        queue.add(TextInputAction::Edit(TextInputEdit::SelectAll));
-                        queue.add(TextInputAction::Edit(TextInputEdit::Paste(text.clone())));
+                    if let Ok(mut editable) = text_queues.get_mut(text_input_entity) {
+                        set_text_input_value(&mut editable, text.clone());
                         break;
                     }
                 }
@@ -1271,26 +1274,26 @@ fn handle_handle_right_click(
         let can_delete = state.gradient.stops.len() > 1;
 
         let popover_entity = commands
-            .spawn((
-                HandleMenu,
-                popover(
-                    PopoverProps::new(handle_entity)
-                        .with_placement(PopoverPlacement::BottomStart)
-                        .with_padding(4.0)
-                        .with_z_index(300),
-                ),
+            .spawn_scene(popover(
+                PopoverProps::new(handle_entity)
+                    .with_placement(PopoverPlacement::BottomStart)
+                    .with_padding(4.0)
+                    .with_z_index(300),
             ))
+            .insert(HandleMenu)
             .id();
 
         commands.entity(popover_entity).with_children(|parent| {
-            parent.spawn((
-                RedistributeOption(handle.gradient_edit),
-                button(
+            let parent_target = parent.target_entity();
+            parent
+                .commands()
+                .spawn_scene(button(
                     ButtonProps::new("Redistribute stops")
                         .with_variant(ButtonVariant::Ghost)
                         .align_left(),
-                ),
-            ));
+                ))
+                .insert(RedistributeOption(handle.gradient_edit))
+                .insert(ChildOf(parent_target));
 
             parent.spawn((
                 Node {
@@ -1308,14 +1311,18 @@ fn handle_handle_right_click(
                 ButtonVariant::Disabled
             };
 
-            parent.spawn((
-                DeleteMenuOption(StopRef::new(handle.gradient_edit, handle.index)),
-                button(
+            parent
+                .commands()
+                .spawn_scene(button(
                     ButtonProps::new("Delete")
                         .with_variant(delete_variant)
                         .align_left(),
-                ),
-            ));
+                ))
+                .insert(DeleteMenuOption(StopRef::new(
+                    handle.gradient_edit,
+                    handle.index,
+                )))
+                .insert(ChildOf(parent_target));
         });
 
         break;

@@ -52,8 +52,8 @@ fn setup_fps_overlay(
                     FpsText,
                     Text::new(""),
                     TextFont {
-                        font,
-                        font_size: TEXT_SIZE,
+                        font: font.into(),
+                        font_size: TEXT_SIZE.into(),
                         font_features: FontFeatures::builder()
                             .enable(FontFeatureTag::TABULAR_FIGURES)
                             .build(),

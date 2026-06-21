@@ -1,4 +1,4 @@
-use bevy::input_focus::InputFocus;
+use bevy::input_focus::{FocusCause, InputFocus};
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy_sprinkles::prelude::*;
@@ -49,7 +49,7 @@ struct LastLoadedProject {
     handle: Option<AssetId<ParticlesAsset>>,
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 pub struct EditorDataPanel;
 
 #[derive(Component)]
@@ -94,48 +94,37 @@ struct AddEmitterEvent;
 #[derive(Event)]
 struct AddColliderEvent;
 
-pub fn data_panel(_asset_server: &AssetServer) -> impl Bundle {
-    (
-        EditorDataPanel,
+pub fn data_panel() -> impl Scene {
+    bsn! {
+        EditorDataPanel
         panel(
             PanelProps::new(PanelDirection::Left)
                 .with_width(224)
                 .with_min_width(160)
                 .with_max_width(320),
-        ),
-    )
+        )
+    }
 }
 
-fn setup_data_panel(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    panels: Query<Entity, Added<EditorDataPanel>>,
-) {
+fn setup_data_panel(mut commands: Commands, panels: Query<Entity, Added<EditorDataPanel>>) {
     for panel_entity in &panels {
         commands
             .entity(panel_entity)
-            .with_child(scrollbar(panel_entity))
-            .with_children(|parent| {
-                parent
-                    .spawn((
-                        EmittersSection,
-                        panel_section(
-                            PanelSectionProps::new("Emitters").with_add_button(),
-                            &asset_server,
-                        ),
-                    ))
-                    .observe(on_add_emitter_click);
+            .with_child(scrollbar(panel_entity));
 
-                parent
-                    .spawn((
-                        CollidersSection,
-                        panel_section(
-                            PanelSectionProps::new("Colliders").with_add_button(),
-                            &asset_server,
-                        ),
-                    ))
-                    .observe(on_add_collider_click);
-            });
+        commands
+            .spawn_scene(panel_section(
+                PanelSectionProps::new("Emitters").with_add_button(),
+            ))
+            .insert((EmittersSection, ChildOf(panel_entity)))
+            .observe(on_add_emitter_click);
+
+        commands
+            .spawn_scene(panel_section(
+                PanelSectionProps::new("Colliders").with_add_button(),
+            ))
+            .insert((CollidersSection, ChildOf(panel_entity)))
+            .observe(on_add_collider_click);
     }
 }
 
@@ -244,17 +233,15 @@ fn spawn_items<'a>(
             .id();
 
         let button_entity = commands
-            .spawn((
-                ItemButton,
-                button(ButtonProps::new(name).with_variant(variant).align_left()),
+            .spawn_scene(button(
+                ButtonProps::new(name).with_variant(variant).align_left(),
             ))
+            .insert(ItemButton)
             .id();
 
         let menu_entity = commands
-            .spawn((
-                ItemMenu,
-                combobox_icon(vec!["Duplicate", "Rename", "Delete"]),
-            ))
+            .spawn_scene(combobox_icon(vec!["Duplicate", "Rename", "Delete"]))
+            .insert(ItemMenu)
             .insert(Node {
                 position_type: PositionType::Absolute,
                 right: px(0.0),
@@ -290,7 +277,7 @@ fn on_add_emitter(
     let Some(handle) = &editor_state.current_project else {
         return;
     };
-    let Some(asset) = assets.get_mut(handle) else {
+    let Some(mut asset) = assets.get_mut(handle) else {
         return;
     };
 
@@ -325,7 +312,7 @@ fn on_add_collider(
     let Some(handle) = &editor_state.current_project else {
         return;
     };
-    let Some(asset) = assets.get_mut(handle) else {
+    let Some(mut asset) = assets.get_mut(handle) else {
         return;
     };
 
@@ -396,7 +383,7 @@ fn on_item_menu_change(
             let Some(handle) = &editor_state.current_project else {
                 return;
             };
-            let Some(asset) = assets.get_mut(handle) else {
+            let Some(mut asset) = assets.get_mut(handle) else {
                 return;
             };
 
@@ -599,13 +586,11 @@ fn start_rename(commands: &mut Commands, item_entity: Entity, name: &str) {
     commands.entity(item_entity).insert(Renaming);
 
     let rename_entity = commands
-        .spawn((
-            RenameInput {
-                item_entity,
-                focused: false,
-            },
-            text_edit(TextEditProps::default().with_default_value(name)),
-        ))
+        .spawn_scene(text_edit(TextEditProps::default().with_default_value(name)))
+        .insert(RenameInput {
+            item_entity,
+            focused: false,
+        })
         .id();
 
     commands.entity(item_entity).add_child(rename_entity);
@@ -671,7 +656,7 @@ fn focus_rename_input(
             continue;
         }
         if let Some(inner) = find_inner_text_edit(entity, &children_query, &text_edits) {
-            focus.0 = Some(inner);
+            focus.set(inner, FocusCause::Navigated);
             rename_input.focused = true;
         }
     }
@@ -727,7 +712,7 @@ fn on_rename_commit(
 
     if !new_name.is_empty() {
         if let Some(handle) = &editor_state.current_project {
-            if let Some(asset) = assets.get_mut(handle) {
+            if let Some(mut asset) = assets.get_mut(handle) {
                 match item.kind {
                     Inspectable::Emitter => {
                         if let Some(emitter) = asset.emitters.get_mut(item.index as usize) {
@@ -789,7 +774,7 @@ fn on_delete_confirmed(
     let Some(handle) = &editor_state.current_project else {
         return;
     };
-    let Some(asset) = assets.get_mut(handle) else {
+    let Some(mut asset) = assets.get_mut(handle) else {
         return;
     };
 

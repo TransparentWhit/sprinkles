@@ -8,9 +8,7 @@ use crate::ui::widgets::button::{
     icon_button, set_button_variant,
 };
 use crate::ui::widgets::inspector_field::{InspectorFieldProps, fields_row, spawn_inspector_field};
-use crate::ui::widgets::panel_section::{
-    PanelSectionAddButton, PanelSectionProps, PanelSectionSize, panel_section,
-};
+use crate::ui::widgets::panel_section::PanelSectionAddButton;
 use crate::ui::widgets::popover::{
     PopoverHeaderProps, PopoverPlacement, PopoverProps, popover, popover_content, popover_header,
 };
@@ -70,7 +68,7 @@ struct AddVelocityPopover;
 #[derive(Component)]
 struct AddVelocityOption(String);
 
-pub fn velocities_section(asset_server: &AssetServer) -> impl Bundle {
+pub fn velocities_section() -> (impl Bundle, InspectorSection) {
     (
         VelocityList {
             added: Vec::new(),
@@ -100,13 +98,6 @@ pub fn velocities_section(asset_server: &AssetServer) -> impl Bundle {
                     InspectorFieldProps::new("velocities.flatness").into(),
                 ],
             ],
-        ),
-        panel_section(
-            PanelSectionProps::new("Velocities")
-                .with_add_button()
-                .collapsible()
-                .with_size(PanelSectionSize::XL),
-            asset_server,
         ),
     )
 }
@@ -216,7 +207,7 @@ fn setup_velocity_list(
 fn spawn_velocity_item(
     commands: &mut Commands,
     field_name: &str,
-    asset_server: &AssetServer,
+    _asset_server: &AssetServer,
 ) -> Entity {
     let label = name_to_label(field_name);
 
@@ -233,25 +224,20 @@ fn spawn_velocity_item(
         .id();
 
     let edit_btn = commands
-        .spawn((
-            VelocityEditButton(field_name.to_string()),
-            button(
-                ButtonProps::new(&label)
-                    .align_left()
-                    .with_right_icon(ICON_MORE),
-            ),
+        .spawn_scene(button(
+            ButtonProps::new(&label)
+                .align_left()
+                .with_right_icon(ICON_MORE),
         ))
+        .insert(VelocityEditButton(field_name.to_string()))
         .id();
     commands.entity(row).add_child(edit_btn);
 
     let delete_btn = commands
-        .spawn((
-            VelocityDeleteButton(field_name.to_string()),
-            icon_button(
-                IconButtonProps::new(ICON_CLOSE).variant(ButtonVariant::Ghost),
-                asset_server,
-            ),
+        .spawn_scene(icon_button(
+            IconButtonProps::new(ICON_CLOSE).variant(ButtonVariant::Ghost),
         ))
+        .insert(VelocityDeleteButton(field_name.to_string()))
         .id();
     commands.entity(row).add_child(delete_btn);
 
@@ -371,30 +357,28 @@ fn handle_add_button_click(
     }
 
     let popover_entity = commands
-        .spawn((
-            AddVelocityPopover,
-            popover(
-                PopoverProps::new(anchor)
-                    .with_placement(PopoverPlacement::BottomEnd)
-                    .with_padding(4.0)
-                    .with_node(Node {
-                        min_width: px(120.0),
-                        ..default()
-                    }),
-            ),
+        .spawn_scene(popover(
+            PopoverProps::new(anchor)
+                .with_placement(PopoverPlacement::BottomEnd)
+                .with_padding(4.0)
+                .with_node(Node {
+                    min_width: px(120.0),
+                    ..default()
+                }),
         ))
+        .insert(AddVelocityPopover)
         .id();
 
     for field_name in remaining {
         let label = name_to_label(field_name);
-        commands.entity(popover_entity).with_child((
-            AddVelocityOption(field_name.to_string()),
-            button(
+        commands
+            .spawn_scene(button(
                 ButtonProps::new(&label)
                     .with_variant(ButtonVariant::Ghost)
                     .align_left(),
-            ),
-        ));
+            ))
+            .insert(AddVelocityOption(field_name.to_string()))
+            .insert(ChildOf(popover_entity));
     }
 }
 
@@ -508,43 +492,41 @@ fn handle_velocity_edit(
     let curve_path = format!("velocities.{}.velocity_over_lifetime", field_name);
 
     let popover_entity = commands
-        .spawn((
-            VelocityEditPopover(trigger.entity),
-            popover(
-                PopoverProps::new(trigger.entity)
-                    .with_placement(PopoverPlacement::Right)
-                    .with_padding(0.0)
-                    .with_node(Node {
-                        width: px(256.0),
-                        min_width: px(256.0),
-                        ..default()
-                    }),
-            ),
+        .spawn_scene(popover(
+            PopoverProps::new(trigger.entity)
+                .with_placement(PopoverPlacement::Right)
+                .with_padding(0.0)
+                .with_node(Node {
+                    width: px(256.0),
+                    min_width: px(256.0),
+                    ..default()
+                }),
         ))
+        .insert(VelocityEditPopover(trigger.entity))
         .id();
 
     commands
-        .entity(popover_entity)
-        .with_child(popover_header(
-            PopoverHeaderProps::new(&popover_title, popover_entity),
-            &asset_server,
-        ))
-        .with_children(|parent| {
-            parent.spawn(popover_content()).with_children(|content| {
-                content.spawn(fields_row()).with_children(|row| {
-                    spawn_inspector_field(
-                        row,
-                        InspectorFieldProps::new(&value_path).vector(VectorSuffixes::Range),
-                        &asset_server,
-                    );
-                });
-                content.spawn(fields_row()).with_children(|row| {
-                    spawn_inspector_field(
-                        row,
-                        InspectorFieldProps::new(&curve_path).curve(),
-                        &asset_server,
-                    );
-                });
+        .spawn_scene(popover_header(PopoverHeaderProps::new(
+            &popover_title,
+            popover_entity,
+        )))
+        .insert(ChildOf(popover_entity));
+    commands.entity(popover_entity).with_children(|parent| {
+        parent.spawn(popover_content()).with_children(|content| {
+            content.spawn(fields_row()).with_children(|row| {
+                spawn_inspector_field(
+                    row,
+                    InspectorFieldProps::new(&value_path).vector(VectorSuffixes::Range),
+                    &asset_server,
+                );
+            });
+            content.spawn(fields_row()).with_children(|row| {
+                spawn_inspector_field(
+                    row,
+                    InspectorFieldProps::new(&curve_path).curve(),
+                    &asset_server,
+                );
             });
         });
+    });
 }

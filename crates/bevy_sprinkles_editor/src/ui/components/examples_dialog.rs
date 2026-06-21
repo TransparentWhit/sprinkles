@@ -231,8 +231,8 @@ fn spawn_example_card(
         .with_child((
             Text::new(&entry.name),
             TextFont {
-                font: font.clone(),
-                font_size: TEXT_SIZE,
+                font: font.clone().into(),
+                font_size: TEXT_SIZE.into(),
                 weight: FontWeight::MEDIUM,
                 ..default()
             },
@@ -248,8 +248,8 @@ fn spawn_example_card(
             children![(
                 Text::new(dimension_label),
                 TextFont {
-                    font: font.clone(),
-                    font_size: TEXT_SIZE_SM,
+                    font: font.clone().into(),
+                    font_size: TEXT_SIZE_SM.into(),
                     ..default()
                 },
                 TextColor(TEXT_BODY_COLOR.into()),
@@ -272,8 +272,8 @@ fn spawn_example_card(
         commands.entity(card).with_child((
             Text::new(label),
             TextFont {
-                font: font.clone(),
-                font_size: TEXT_SIZE_SM,
+                font: font.clone().into(),
+                font_size: TEXT_SIZE_SM.into(),
                 ..default()
             },
             TextColor(TEXT_MUTED_COLOR.into()),

@@ -1,14 +1,11 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use bevy::input_focus::InputFocus;
+use bevy::input_focus::{FocusCause, InputFocus};
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::tasks::IoTaskPool;
-use bevy_ui_text_input::{
-    TextInputBuffer, TextInputPrompt, TextInputQueue,
-    actions::{TextInputAction, TextInputEdit},
-};
+use bevy::text::EditableText;
 
 use bevy_sprinkles::prelude::*;
 
@@ -31,7 +28,9 @@ use crate::ui::widgets::dialog::{
     DialogActionEvent, DialogChildrenSlot, EditorDialog, OpenDialogEvent,
 };
 use crate::ui::widgets::popover::{EditorPopover, PopoverPlacement, PopoverProps, popover};
-use crate::ui::widgets::text_edit::{EditorTextEdit, TextEditProps, text_edit};
+use crate::ui::widgets::text_edit::{
+    EditorTextEdit, Placeholder, PlaceholderNode, TextEditProps, set_text_input_value, text_edit,
+};
 use crate::ui::widgets::utils::is_descendant_of;
 use crate::utils::simplify_path;
 
@@ -60,13 +59,13 @@ pub fn plugin(app: &mut App) {
         );
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 pub struct ProjectSelector;
 
 #[derive(Component)]
 struct ProjectSelectorTrigger(Entity);
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone)]
 struct ProjectSelectorState {
     popover: Option<Entity>,
     initialized: bool,
@@ -111,12 +110,12 @@ struct NewProjectDialogState {
     focused: bool,
 }
 
-pub fn project_selector() -> impl Bundle {
-    (
-        ProjectSelector,
-        ProjectSelectorState::default(),
-        Node::default(),
-    )
+pub fn project_selector() -> impl Scene {
+    bsn! {
+        ProjectSelector
+        ProjectSelectorState
+        Node
+    }
 }
 
 fn setup_project_selector(
@@ -130,14 +129,12 @@ fn setup_project_selector(
         state.initialized = true;
 
         let trigger = commands
-            .spawn((
-                ProjectSelectorTrigger(entity),
-                button(
-                    ButtonProps::new("Untitled")
-                        .with_variant(ButtonVariant::Ghost)
-                        .with_right_icon(ICON_ARROW_DOWN),
-                ),
+            .spawn_scene(button(
+                ButtonProps::new("Untitled")
+                    .with_variant(ButtonVariant::Ghost)
+                    .with_right_icon(ICON_ARROW_DOWN),
             ))
+            .insert(ProjectSelectorTrigger(entity))
             .id();
 
         commands.entity(entity).add_child(trigger);
@@ -207,20 +204,18 @@ fn handle_trigger_click(
     let font: Handle<Font> = asset_server.load(FONT_PATH);
 
     let popover_entity = commands
-        .spawn((
-            ProjectSelectorPopover,
-            popover(
-                PopoverProps::new(trigger.entity)
-                    .with_placement(PopoverPlacement::BottomStart)
-                    .with_padding(6.0)
-                    .with_gap(6.0)
-                    .with_z_index(200)
-                    .with_node(Node {
-                        min_width: px(200.0),
-                        ..default()
-                    }),
-            ),
+        .spawn_scene(popover(
+            PopoverProps::new(trigger.entity)
+                .with_placement(PopoverPlacement::BottomStart)
+                .with_padding(6.0)
+                .with_gap(6.0)
+                .with_z_index(200)
+                .with_node(Node {
+                    min_width: px(200.0),
+                    ..default()
+                }),
         ))
+        .insert(ProjectSelectorPopover)
         .id();
 
     state.popover = Some(popover_entity);
@@ -230,34 +225,34 @@ fn handle_trigger_click(
             flex_direction: FlexDirection::Column,
             ..default()
         })
-        .with_child((
-            NewProjectButton,
-            button(
-                ButtonProps::new("New project...")
-                    .with_variant(ButtonVariant::Ghost)
-                    .align_left()
-                    .with_left_icon(ICON_FILE_ADD),
-            ),
-        ))
-        .with_child((
-            OpenProjectButton,
-            button(
-                ButtonProps::new("Open...")
-                    .with_variant(ButtonVariant::Ghost)
-                    .align_left()
-                    .with_left_icon(ICON_FOLDER_OPEN),
-            ),
-        ))
-        .with_child((
-            crate::ui::components::examples_dialog::ExamplesButton,
-            button(
-                ButtonProps::new("Examples")
-                    .with_variant(ButtonVariant::Ghost)
-                    .align_left()
-                    .with_left_icon(ICON_FOLDER_IMAGE),
-            ),
-        ))
         .id();
+    commands
+        .spawn_scene(button(
+            ButtonProps::new("New project...")
+                .with_variant(ButtonVariant::Ghost)
+                .align_left()
+                .with_left_icon(ICON_FILE_ADD),
+        ))
+        .insert(NewProjectButton)
+        .insert(ChildOf(actions_wrapper));
+    commands
+        .spawn_scene(button(
+            ButtonProps::new("Open...")
+                .with_variant(ButtonVariant::Ghost)
+                .align_left()
+                .with_left_icon(ICON_FOLDER_OPEN),
+        ))
+        .insert(OpenProjectButton)
+        .insert(ChildOf(actions_wrapper));
+    commands
+        .spawn_scene(button(
+            ButtonProps::new("Examples")
+                .with_variant(ButtonVariant::Ghost)
+                .align_left()
+                .with_left_icon(ICON_FOLDER_IMAGE),
+        ))
+        .insert(crate::ui::components::examples_dialog::ExamplesButton)
+        .insert(ChildOf(actions_wrapper));
 
     commands.entity(popover_entity).add_child(actions_wrapper);
 
@@ -273,8 +268,8 @@ fn handle_trigger_click(
     commands.entity(popover_entity).with_child((
         Text::new("Recent projects"),
         TextFont {
-            font,
-            font_size: TEXT_SIZE_SM,
+            font: font.into(),
+            font_size: TEXT_SIZE_SM.into(),
             weight: FontWeight::MEDIUM,
             ..default()
         },
@@ -314,16 +309,14 @@ fn handle_trigger_click(
             });
 
         let project_button = commands
-            .spawn((
-                RecentProjectButton(path_str.clone()),
-                button(
-                    ButtonProps::new(name)
-                        .with_variant(ButtonVariant::Ghost)
-                        .align_left()
-                        .with_direction(FlexDirection::Column)
-                        .with_subtitle(path_str),
-                ),
+            .spawn_scene(button(
+                ButtonProps::new(name)
+                    .with_variant(ButtonVariant::Ghost)
+                    .align_left()
+                    .with_direction(FlexDirection::Column)
+                    .with_subtitle(path_str),
             ))
+            .insert(RecentProjectButton(path_str.clone()))
             .id();
 
         commands
@@ -334,14 +327,13 @@ fn handle_trigger_click(
             });
 
         let remove_button = commands
-            .spawn((
+            .spawn_scene(icon_button(
+                IconButtonProps::new(ICON_CLOSE)
+                    .variant(ButtonVariant::Ghost)
+                    .with_size(ButtonSize::IconSM),
+            ))
+            .insert((
                 RemoveRecentProjectButton(path_str.clone()),
-                icon_button(
-                    IconButtonProps::new(ICON_CLOSE)
-                        .variant(ButtonVariant::Ghost)
-                        .with_size(ButtonSize::IconSM),
-                    &asset_server,
-                ),
                 Visibility::Hidden,
             ))
             .id();
@@ -532,15 +524,11 @@ fn slugify(name: &str) -> String {
 fn resolve_location_path(raw: &str) -> PathBuf {
     let expanded = if raw.starts_with("~/") {
         #[cfg(unix)]
-        {
-            std::env::var_os("HOME")
-                .map(|home| PathBuf::from(home).join(&raw[2..]))
-                .unwrap_or_else(|| PathBuf::from(raw))
-        }
+        let home = std::env::var_os("HOME").map(PathBuf::from);
         #[cfg(not(unix))]
-        {
-            PathBuf::from(raw)
-        }
+        let home = std::env::var_os("USERPROFILE").map(PathBuf::from);
+        home.map(|h| h.join(&raw[2..]))
+            .unwrap_or_else(|| PathBuf::from(raw))
     } else if PathBuf::from(raw).is_absolute() {
         PathBuf::from(raw)
     } else {
@@ -587,28 +575,25 @@ fn setup_new_project_dialog_content(
     let location_placeholder = format!("projects/{}", state.default_slug);
 
     let name_input = commands
-        .spawn((
-            NewProjectNameInput,
-            text_edit(TextEditProps::default().with_placeholder(&state.default_name)),
+        .spawn_scene(text_edit(
+            TextEditProps::default().with_placeholder(&state.default_name),
         ))
+        .insert(NewProjectNameInput)
         .id();
 
     let location_text_edit = commands
-        .spawn(text_edit(
+        .spawn_scene(text_edit(
             TextEditProps::default().with_placeholder(&location_placeholder),
         ))
         .id();
 
     let browse_button = commands
-        .spawn((
-            BrowseLocationButton,
-            icon_button(
-                IconButtonProps::new(ICON_FOLDER_OPEN)
-                    .variant(ButtonVariant::Ghost)
-                    .with_size(ButtonSize::IconSM),
-                &asset_server,
-            ),
+        .spawn_scene(icon_button(
+            IconButtonProps::new(ICON_FOLDER_OPEN)
+                .variant(ButtonVariant::Ghost)
+                .with_size(ButtonSize::IconSM),
         ))
+        .insert(BrowseLocationButton)
         .id();
 
     commands
@@ -637,8 +622,8 @@ fn setup_new_project_dialog_content(
         .spawn((
             Text::new(".ron"),
             TextFont {
-                font: font.clone(),
-                font_size: TEXT_SIZE,
+                font: font.clone().into(),
+                font_size: TEXT_SIZE.into(),
                 ..default()
             },
             TextColor(TEXT_MUTED_COLOR.into()),
@@ -672,8 +657,8 @@ fn setup_new_project_dialog_content(
     grid.with_child((
         Text::new("Project name"),
         TextFont {
-            font: font.clone(),
-            font_size: TEXT_SIZE,
+            font: font.clone().into(),
+            font_size: TEXT_SIZE.into(),
             weight: FontWeight::MEDIUM,
             ..default()
         },
@@ -683,8 +668,8 @@ fn setup_new_project_dialog_content(
     grid.with_child((
         Text::new("Location"),
         TextFont {
-            font,
-            font_size: TEXT_SIZE,
+            font: font.into(),
+            font_size: TEXT_SIZE.into(),
             weight: FontWeight::MEDIUM,
             ..default()
         },
@@ -714,7 +699,7 @@ fn focus_new_project_name(
     };
 
     if let Some(inner) = find_inner_text_edit(name_entity, &children_query, &text_edits) {
-        focus.0 = Some(inner);
+        focus.set(inner, FocusCause::Navigated);
         state.focused = true;
     }
 }
@@ -723,8 +708,9 @@ fn update_location_placeholder(
     state: Option<Res<NewProjectDialogState>>,
     children_query: Query<&Children>,
     text_edits: Query<Entity, With<EditorTextEdit>>,
-    buffers: Query<&TextInputBuffer>,
-    mut prompts: Query<&mut TextInputPrompt>,
+    buffers: Query<&EditableText>,
+    mut placeholders: Query<&mut Placeholder>,
+    mut placeholder_texts: Query<&mut Text, With<PlaceholderNode>>,
 ) {
     let Some(state) = state else { return };
     let Some(name_entity) = state.name_entity else {
@@ -742,10 +728,10 @@ fn update_location_placeholder(
         return;
     };
 
-    let Ok(buffer) = buffers.get(name_inner) else {
+    let Ok(editable) = buffers.get(name_inner) else {
         return;
     };
-    let name_text = buffer.get_text();
+    let name_text = editable.value().to_string();
 
     let slug = if name_text.is_empty() {
         state.default_slug.clone()
@@ -759,9 +745,21 @@ fn update_location_placeholder(
     };
 
     let new_placeholder = format!("projects/{}", slug);
-    if let Ok(mut prompt) = prompts.get_mut(location_inner) {
-        if prompt.text != new_placeholder {
-            prompt.text = new_placeholder;
+
+    if let Ok(mut placeholder) = placeholders.get_mut(location_inner) {
+        if placeholder.text != new_placeholder {
+            placeholder.text = new_placeholder.clone();
+        }
+    }
+
+    if let Ok(children) = children_query.get(location_inner) {
+        for child in children.iter() {
+            if let Ok(mut text) = placeholder_texts.get_mut(child) {
+                if **text != new_placeholder {
+                    **text = new_placeholder.clone();
+                }
+                break;
+            }
         }
     }
 }
@@ -775,7 +773,7 @@ fn handle_create_project(
     mut dirty_state: ResMut<DirtyState>,
     children_query: Query<&Children>,
     text_edits: Query<Entity, With<EditorTextEdit>>,
-    buffers: Query<&TextInputBuffer>,
+    buffers: Query<&EditableText>,
     mut commands: Commands,
 ) {
     let Some(state) = state else { return };
@@ -788,13 +786,13 @@ fn handle_create_project(
 
     let name = find_inner_text_edit(name_entity, &children_query, &text_edits)
         .and_then(|e| buffers.get(e).ok())
-        .map(|b| b.get_text().to_string())
+        .map(|b| b.value().to_string())
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| state.default_name.clone());
 
     let location_raw = find_inner_text_edit(location_entity, &children_query, &text_edits)
         .and_then(|e| buffers.get(e).ok())
-        .map(|b| b.get_text().to_string())
+        .map(|b| b.value().to_string())
         .filter(|s| !s.is_empty());
 
     let slug = slugify(&name);
@@ -880,8 +878,7 @@ fn poll_browse_location_result(
     state: Option<Res<NewProjectDialogState>>,
     children_query: Query<&Children>,
     text_edits: Query<Entity, With<EditorTextEdit>>,
-    buffers: Query<&TextInputBuffer>,
-    mut queues: Query<&mut TextInputQueue>,
+    mut editables: Query<&mut EditableText>,
     mut commands: Commands,
 ) {
     let Some(result) = result else { return };
@@ -906,22 +903,21 @@ fn poll_browse_location_result(
     };
 
     let slug = find_inner_text_edit(name_entity, &children_query, &text_edits)
-        .and_then(|e| buffers.get(e).ok())
-        .map(|b| slugify(&b.get_text()))
+        .and_then(|e| editables.get(e).ok())
+        .map(|b| slugify(&b.value().to_string()))
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| state.default_slug.clone());
 
     let Some(inner) = find_inner_text_edit(location_entity, &children_query, &text_edits) else {
         return;
     };
-    let Ok(mut queue) = queues.get_mut(inner) else {
+    let Ok(mut editable) = editables.get_mut(inner) else {
         return;
     };
 
     let dir_path = simplify_path(&path);
     let display_path = format!("{dir_path}/{slug}");
-    queue.add(TextInputAction::Edit(TextInputEdit::SelectAll));
-    queue.add(TextInputAction::Edit(TextInputEdit::Paste(display_path)));
+    set_text_input_value(&mut editable, display_path);
 }
 
 fn cleanup_new_project_state(

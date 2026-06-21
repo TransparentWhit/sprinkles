@@ -124,7 +124,7 @@ pub(super) fn update_inspected_collider_tracker(
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 pub struct EditorInspectorPanel;
 
 #[derive(Component)]
@@ -148,16 +148,16 @@ struct PanelTitleIcon;
 #[derive(Component)]
 pub(super) struct DynamicSectionContent;
 
-pub fn inspector_panel(_asset_server: &AssetServer) -> impl Bundle {
-    (
-        EditorInspectorPanel,
+pub fn inspector_panel() -> impl Scene {
+    bsn! {
+        EditorInspectorPanel
         panel(
             PanelProps::new(PanelDirection::Left)
                 .with_width(320)
                 .with_min_width(320)
                 .with_max_width(512),
-        ),
-    )
+        )
+    }
 }
 
 fn setup_inspector_panel(
@@ -170,7 +170,8 @@ fn setup_inspector_panel(
             .entity(panel_entity)
             .with_child(scrollbar(panel_entity))
             .with_children(|parent| {
-                parent.spawn(panel_title(&asset_server));
+                let parent_target = parent.target_entity();
+                spawn_panel_title(&mut parent.commands(), &asset_server, parent_target);
 
                 parent
                     .spawn((
@@ -192,25 +193,31 @@ fn setup_inspector_panel(
                                 },
                             ))
                             .with_children(|emitter_content| {
-                                emitter_content.spawn(time::time_section(&asset_server));
-                                emitter_content.spawn(draw_pass::draw_pass_section(&asset_server));
-                                emitter_content.spawn(emission::emission_section(&asset_server));
-                                emitter_content.spawn(scale::scale_section(&asset_server));
-                                emitter_content.spawn(colors::colors_section(&asset_server));
-                                emitter_content
-                                    .spawn(velocities::velocities_section(&asset_server));
-                                emitter_content.spawn(angle::angle_section(&asset_server));
-                                emitter_content
-                                    .spawn(accelerations::accelerations_section(&asset_server));
-                                emitter_content
-                                    .spawn(turbulence::turbulence_section(&asset_server));
-                                emitter_content.spawn(trail::trail_section(&asset_server));
-                                emitter_content.spawn(collision::collision_section(&asset_server));
-                                emitter_content
-                                    .spawn(sub_emitter::sub_emitter_section(&asset_server));
-                                emitter_content
-                                    .spawn(particle_flags::particle_flags_section(&asset_server));
-                                emitter_content.spawn(transform::transform_section(&asset_server));
+                                spawn_section(emitter_content, time::time_section());
+                                spawn_section(emitter_content, draw_pass::draw_pass_section());
+                                spawn_section(emitter_content, emission::emission_section());
+                                spawn_section(emitter_content, scale::scale_section());
+                                spawn_section(emitter_content, colors::colors_section());
+
+                                let (extra, section) = velocities::velocities_section();
+                                let props =
+                                    inspector_section_props(&section.title).with_add_button();
+                                spawn_section_with(emitter_content, props, extra, section);
+
+                                spawn_section(emitter_content, angle::angle_section());
+                                spawn_section(
+                                    emitter_content,
+                                    accelerations::accelerations_section(),
+                                );
+                                spawn_section(emitter_content, turbulence::turbulence_section());
+                                spawn_section(emitter_content, trail::trail_section());
+                                spawn_section(emitter_content, collision::collision_section());
+                                spawn_section(emitter_content, sub_emitter::sub_emitter_section());
+                                spawn_section(
+                                    emitter_content,
+                                    particle_flags::particle_flags_section(),
+                                );
+                                spawn_section(emitter_content, transform::transform_section());
                             });
 
                         content
@@ -224,10 +231,11 @@ fn setup_inspector_panel(
                                 },
                             ))
                             .with_children(|collider_content| {
-                                collider_content.spawn(
-                                    collider_properties::collider_properties_section(&asset_server),
+                                spawn_section(
+                                    collider_content,
+                                    collider_properties::collider_properties_section(),
                                 );
-                                collider_content.spawn(transform::transform_section(&asset_server));
+                                spawn_section(collider_content, transform::transform_section());
                             });
 
                         content
@@ -241,14 +249,18 @@ fn setup_inspector_panel(
                                 },
                             ))
                             .with_children(|project_content| {
-                                project_content.spawn(
-                                    project_properties::project_properties_section(&asset_server),
+                                spawn_section(
+                                    project_content,
+                                    project_properties::project_properties_section(),
                                 );
-                                project_content.spawn(project_properties::project_runtime_section(
-                                    &asset_server,
-                                ));
-                                project_content
-                                    .spawn(transform::asset_transform_section(&asset_server));
+                                spawn_section(
+                                    project_content,
+                                    project_properties::project_runtime_section(),
+                                );
+                                spawn_section(
+                                    project_content,
+                                    transform::asset_transform_section(),
+                                );
                             });
 
                         content
@@ -262,8 +274,10 @@ fn setup_inspector_panel(
                                 },
                             ))
                             .with_children(|settings_content| {
-                                settings_content.spawn(
-                                    settings_properties::settings_properties_section(&asset_server),
+                                let settings_target = settings_content.target_entity();
+                                settings_properties::spawn_settings_properties_section(
+                                    &mut settings_content.commands(),
+                                    settings_target,
                                 );
                             });
                     });
@@ -318,58 +332,66 @@ pub(crate) fn set_display_visible(node: &mut Node, visible: bool) {
     }
 }
 
-fn panel_title(asset_server: &AssetServer) -> impl Bundle {
+fn spawn_panel_title(commands: &mut Commands, asset_server: &AssetServer, parent: Entity) {
     let font: Handle<Font> = asset_server.load(FONT_PATH);
 
-    (
+    let title = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                align_items: AlignItems::Center,
+                column_gap: px(12.0),
+                padding: UiRect::axes(px(24.0), px(20.0)),
+                border: UiRect::bottom(px(1.0)),
+                ..default()
+            },
+            BorderColor::all(BORDER_COLOR),
+            ChildOf(parent),
+        ))
+        .id();
+
+    let left = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: px(6.0),
+                flex_grow: 1.0,
+                ..default()
+            },
+            ChildOf(title),
+        ))
+        .id();
+
+    commands.spawn((
+        PanelTitleIcon,
+        ImageNode::new(asset_server.load(ICON_SHOWERS)).with_color(Color::Srgba(TEXT_BODY_COLOR)),
         Node {
-            width: percent(100),
-            align_items: AlignItems::Center,
-            column_gap: px(12.0),
-            padding: UiRect::axes(px(24.0), px(20.0)),
-            border: UiRect::bottom(px(1.0)),
+            width: px(16.0),
+            height: px(16.0),
             ..default()
         },
-        BorderColor::all(BORDER_COLOR),
-        children![
-            (
-                Node {
-                    align_items: AlignItems::Center,
-                    column_gap: px(6.0),
-                    flex_grow: 1.0,
-                    ..default()
-                },
-                children![
-                    (
-                        PanelTitleIcon,
-                        ImageNode::new(asset_server.load(ICON_SHOWERS))
-                            .with_color(Color::Srgba(TEXT_BODY_COLOR)),
-                        Node {
-                            width: px(16.0),
-                            height: px(16.0),
-                            ..default()
-                        },
-                    ),
-                    (
-                        PanelTitleText,
-                        Text::new(""),
-                        TextFont {
-                            font: font.into(),
-                            font_size: TEXT_SIZE_LG,
-                            weight: FontWeight::SEMIBOLD,
-                            ..default()
-                        },
-                        TextColor(TEXT_BODY_COLOR.into()),
-                    ),
-                ],
-            ),
-            (
-                InspectorContentKind::EnabledCheckbox,
-                FieldBinding::emitter("enabled", FieldKind::Bool),
-                checkbox(CheckboxProps::new("Enabled").checked(true), asset_server)
-            ),
-        ],
-    )
+        ChildOf(left),
+    ));
+    commands.spawn((
+        PanelTitleText,
+        Text::new(""),
+        TextFont {
+            font: font.into(),
+            font_size: TEXT_SIZE_LG.into(),
+            weight: FontWeight::SEMIBOLD,
+            ..default()
+        },
+        TextColor(TEXT_BODY_COLOR.into()),
+        ChildOf(left),
+    ));
+
+    commands
+        .spawn_scene(checkbox(CheckboxProps::new("Enabled").checked(true)))
+        .insert((
+            InspectorContentKind::EnabledCheckbox,
+            FieldBinding::emitter("enabled", FieldKind::Bool),
+        ))
+        .insert(ChildOf(title));
 }
 
 pub enum InspectorItem {
@@ -425,17 +447,38 @@ pub(super) fn section_needs_setup<S: Component, C: Component>(
     Some(entity)
 }
 
-pub fn inspector_section(section: InspectorSection, asset_server: &AssetServer) -> impl Bundle {
-    let title = section.title.clone();
-    (
+fn inspector_section_props(title: &str) -> PanelSectionProps {
+    PanelSectionProps::new(title)
+        .collapsible()
+        .with_size(PanelSectionSize::XL)
+}
+
+pub(super) fn spawn_section(
+    content: &mut ChildSpawnerCommands,
+    parts: (impl Bundle, InspectorSection),
+) {
+    let (extra, section) = parts;
+    spawn_section_with(
+        content,
+        inspector_section_props(&section.title),
+        extra,
         section,
-        panel_section(
-            PanelSectionProps::new(title)
-                .collapsible()
-                .with_size(PanelSectionSize::XL),
-            asset_server,
-        ),
-    )
+    );
+}
+
+pub(super) fn spawn_section_with(
+    content: &mut ChildSpawnerCommands,
+    props: PanelSectionProps,
+    extra: impl Bundle,
+    section: InspectorSection,
+) {
+    let target = content.target_entity();
+    content
+        .commands()
+        .spawn_scene(panel_section(props))
+        .insert(extra)
+        .insert(section)
+        .insert(ChildOf(target));
 }
 
 fn setup_inspector_section_fields(
@@ -460,10 +503,11 @@ fn setup_inspector_section_fields(
                                 spawn_inspector_field(row, props, &asset_server);
                             }
                             InspectorItem::Variant { path, props } => {
-                                row.spawn((
-                                    FieldBinding::emitter(&path, FieldKind::default()),
-                                    variant_edit(props),
-                                ));
+                                let row_target = row.target_entity();
+                                row.commands()
+                                    .spawn_scene(variant_edit(props))
+                                    .insert(FieldBinding::emitter(&path, FieldKind::default()))
+                                    .insert(ChildOf(row_target));
                             }
                         }
                     }
@@ -564,14 +608,19 @@ pub(super) fn spawn_labeled_combobox(
             wrapper.spawn((
                 Text::new(label),
                 TextFont {
-                    font: font.clone(),
-                    font_size: TEXT_SIZE_SM,
+                    font: font.clone().into(),
+                    font_size: TEXT_SIZE_SM.into(),
                     weight: FontWeight::MEDIUM,
                     ..default()
                 },
                 TextColor(TEXT_MUTED_COLOR.into()),
             ));
-            wrapper.spawn((marker, combobox_with_selected(options, selected)));
+            let wrapper_target = wrapper.target_entity();
+            wrapper
+                .commands()
+                .spawn_scene(combobox_with_selected(options, selected))
+                .insert(marker)
+                .insert(ChildOf(wrapper_target));
         });
     });
 }

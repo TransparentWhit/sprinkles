@@ -36,12 +36,12 @@ use crate::ui::widgets::popover::{
     activate_trigger, deactivate_trigger, popover, popover_content, popover_header,
 };
 use crate::ui::widgets::text_edit::EditorTextEdit;
+use crate::ui::widgets::text_edit::set_text_input_value;
 use crate::ui::widgets::utils::is_descendant_of;
 use crate::ui::widgets::vector_edit::{
     EditorVectorEdit, VectorEditProps, VectorSize, VectorSuffixes, vector_edit,
 };
-use bevy_ui_text_input::TextInputQueue;
-use bevy_ui_text_input::actions::{TextInputAction, TextInputEdit};
+use bevy::text::EditableText;
 
 #[derive(Clone, Copy, PartialEq, Default)]
 pub(crate) enum CurveAxis {
@@ -118,7 +118,7 @@ pub fn plugin(app: &mut App) {
         );
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 pub struct EditorCurveEdit;
 
 #[derive(Component, Clone, Default)]
@@ -223,28 +223,27 @@ impl CurveEditProps {
     }
 }
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone)]
 pub struct CurveEditLabel(pub Option<String>);
 
-pub fn curve_edit(props: CurveEditProps) -> impl Bundle {
+pub fn curve_edit(props: CurveEditProps) -> impl Scene {
     let CurveEditProps { curve, label } = props;
 
     let state = curve.map(CurveEditState::from_curve).unwrap_or_default();
 
-    (
-        EditorCurveEdit,
-        CurveEditLabel(label),
-        state,
-        PopoverTracker::default(),
+    bsn! {
+        EditorCurveEdit
+        template_value(CurveEditLabel(label))
+        template_value(state)
+        PopoverTracker
         Node {
-            flex_direction: FlexDirection::Column,
-            row_gap: px(3.0),
+            flex_direction: { FlexDirection::Column },
+            row_gap: px(3),
             flex_grow: 1.0,
             flex_shrink: 1.0,
-            flex_basis: px(0.0),
-            ..default()
-        },
-    )
+            flex_basis: px(0),
+        }
+    }
 }
 
 #[derive(Component)]
@@ -602,8 +601,8 @@ fn setup_curve_edit(
             .spawn((
                 Text::new(label_text),
                 TextFont {
-                    font: font.clone(),
-                    font_size: TEXT_SIZE_SM,
+                    font: font.clone().into(),
+                    font_size: TEXT_SIZE_SM.into(),
                     weight: FontWeight::MEDIUM,
                     ..default()
                 },
@@ -613,15 +612,13 @@ fn setup_curve_edit(
         commands.entity(entity).add_child(label_entity);
 
         let trigger_entity = commands
-            .spawn((
-                CurveEditTrigger(entity),
-                button(
-                    ButtonProps::new(state.label())
-                        .align_left()
-                        .with_left_icon(ICON_FCURVE)
-                        .with_right_icon(ICON_MORE),
-                ),
+            .spawn_scene(button(
+                ButtonProps::new(state.label())
+                    .align_left()
+                    .with_left_icon(ICON_FCURVE)
+                    .with_right_icon(ICON_MORE),
             ))
+            .insert(CurveEditTrigger(entity))
             .id();
 
         commands.entity(entity).add_child(trigger_entity);
@@ -631,7 +628,7 @@ fn setup_curve_edit(
 fn handle_trigger_click(
     trigger: On<ButtonClickEvent>,
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    _asset_server: Res<AssetServer>,
     triggers: Query<&CurveEditTrigger>,
     states: Query<&CurveEditState>,
     mut trackers: Query<&mut PopoverTracker>,
@@ -686,18 +683,16 @@ fn handle_trigger_click(
     let axes_selected = if state.is_per_axis() { 1 } else { 0 };
 
     let popover_entity = commands
-        .spawn((
-            CurveEditPopover(curve_edit_entity),
-            popover(
-                PopoverProps::new(trigger.entity)
-                    .with_placement(PopoverPlacement::Right)
-                    .with_padding(0.0)
-                    .with_node(Node {
-                        width: px(256.0),
-                        ..default()
-                    }),
-            ),
+        .spawn_scene(popover(
+            PopoverProps::new(trigger.entity)
+                .with_placement(PopoverPlacement::Right)
+                .with_padding(0.0)
+                .with_node(Node {
+                    width: px(256.0),
+                    ..default()
+                }),
         ))
+        .insert(CurveEditPopover(curve_edit_entity))
         .id();
 
     tracker.open(popover_entity, trigger.entity);
@@ -706,102 +701,108 @@ fn handle_trigger_click(
     let active_axis = state.active_axis;
 
     commands
-        .entity(popover_entity)
-        .with_child(popover_header(
-            PopoverHeaderProps::new("Curve editor", popover_entity),
-            &asset_server,
-        ))
-        .with_children(|parent| {
-            parent
-                .spawn((
+        .spawn_scene(popover_header(PopoverHeaderProps::new(
+            "Curve editor",
+            popover_entity,
+        )))
+        .insert(ChildOf(popover_entity));
+    commands.entity(popover_entity).with_children(|parent| {
+        parent
+            .spawn((
+                Node {
+                    width: percent(100),
+                    padding: UiRect::all(px(CONTENT_PADDING)),
+                    border: UiRect::bottom(px(1.0)),
+                    column_gap: px(8.0),
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                BorderColor::all(BORDER_COLOR),
+            ))
+            .with_children(|row| {
+                let row_target = row.target_entity();
+                row.commands()
+                    .spawn_scene(combobox_with_label(presets, "Presets"))
+                    .insert(PresetComboBox(curve_edit_entity))
+                    .insert(ChildOf(row_target));
+                row.commands()
+                    .spawn_scene(combobox_with_selected(axes_options, axes_selected))
+                    .insert(AxesComboBox(curve_edit_entity))
+                    .insert(ChildOf(row_target));
+                let flip_wrapper = row
+                    .spawn((Node {
+                        flex_shrink: 0.0,
+                        ..default()
+                    },))
+                    .id();
+                row.commands()
+                    .spawn_scene(icon_button(
+                        IconButtonProps::new(ICON_ARROW_LEFT_RIGHT).variant(ButtonVariant::Default),
+                    ))
+                    .insert(FlipButton(curve_edit_entity))
+                    .insert(ChildOf(flip_wrapper));
+            });
+
+        parent
+            .spawn((
+                AxisTabs(curve_edit_entity),
+                Node {
+                    display: if is_per_axis {
+                        Display::Flex
+                    } else {
+                        Display::None
+                    },
+                    column_gap: px(3),
+                    padding: UiRect::new(
+                        px(CONTENT_PADDING),
+                        px(CONTENT_PADDING),
+                        px(CONTENT_PADDING),
+                        px(0),
+                    ),
+                    ..default()
+                },
+            ))
+            .with_children(|tabs| {
+                tabs.spawn((
                     Node {
-                        width: percent(100),
-                        padding: UiRect::all(px(CONTENT_PADDING)),
-                        border: UiRect::bottom(px(1.0)),
-                        column_gap: px(8.0),
-                        align_items: AlignItems::Center,
+                        width: percent(100.0),
+                        column_gap: px(3),
+                        padding: UiRect::all(px(3)),
+                        border: UiRect::all(px(1)),
+                        border_radius: BorderRadius::all(CORNER_RADIUS_LG),
                         ..default()
                     },
                     BorderColor::all(BORDER_COLOR),
                 ))
-                .with_children(|row| {
-                    row.spawn((
-                        PresetComboBox(curve_edit_entity),
-                        combobox_with_label(presets, "Presets"),
-                    ));
-                    row.spawn((
-                        AxesComboBox(curve_edit_entity),
-                        combobox_with_selected(axes_options, axes_selected),
-                    ));
-                    row.spawn((Node {
-                        flex_shrink: 0.0,
-                        ..default()
-                    },))
-                        .with_child((
-                            FlipButton(curve_edit_entity),
-                            icon_button(
-                                IconButtonProps::new(ICON_ARROW_LEFT_RIGHT)
-                                    .variant(ButtonVariant::Default),
-                                &asset_server,
-                            ),
-                        ));
-                });
-
-            parent
-                .spawn((
-                    AxisTabs(curve_edit_entity),
-                    Node {
-                        display: if is_per_axis {
-                            Display::Flex
+                .with_children(|inner| {
+                    let inner_target = inner.target_entity();
+                    for axis in CurveAxis::ALL {
+                        let variant = if axis == active_axis {
+                            ButtonVariant::Active
                         } else {
-                            Display::None
-                        },
-                        column_gap: px(3),
-                        padding: UiRect::new(
-                            px(CONTENT_PADDING),
-                            px(CONTENT_PADDING),
-                            px(CONTENT_PADDING),
-                            px(0),
-                        ),
-                        ..default()
-                    },
-                ))
-                .with_children(|tabs| {
-                    tabs.spawn((
-                        Node {
-                            width: percent(100.0),
-                            column_gap: px(3),
-                            padding: UiRect::all(px(3)),
-                            border: UiRect::all(px(1)),
-                            border_radius: BorderRadius::all(CORNER_RADIUS_LG),
-                            ..default()
-                        },
-                        BorderColor::all(BORDER_COLOR),
-                    ))
-                    .with_children(|inner| {
-                        for axis in CurveAxis::ALL {
-                            let variant = if axis == active_axis {
-                                ButtonVariant::Active
-                            } else {
-                                ButtonVariant::Ghost
-                            };
-                            let mut btn = inner.spawn((
-                                AxisTabButton {
-                                    curve_edit: curve_edit_entity,
-                                    axis,
-                                },
-                                button(ButtonProps::new(axis.label()).with_variant(variant)),
-                            ));
-                            btn.entry::<Node>().and_modify(|mut node| {
+                            ButtonVariant::Ghost
+                        };
+                        inner
+                            .commands()
+                            .spawn_scene(button(
+                                ButtonProps::new(axis.label()).with_variant(variant),
+                            ))
+                            .insert(AxisTabButton {
+                                curve_edit: curve_edit_entity,
+                                axis,
+                            })
+                            .insert(ChildOf(inner_target))
+                            .entry::<Node>()
+                            .and_modify(|mut node| {
                                 node.flex_grow = 1.0;
                                 node.flex_basis = px(0.0);
                             });
-                        }
-                    });
+                    }
                 });
+            });
 
-            parent.spawn((CurveEditContent(curve_edit_entity), popover_content()));
-        });
+        parent.spawn((CurveEditContent(curve_edit_entity), popover_content()));
+    });
 }
 
 fn setup_curve_edit_content(
@@ -875,16 +876,18 @@ fn setup_curve_edit_content(
                     );
                 });
 
-            parent.spawn((
-                RangeEdit(curve_edit_entity),
-                vector_edit(
+            let parent_target = parent.target_entity();
+            parent
+                .commands()
+                .spawn_scene(vector_edit(
                     VectorEditProps::default()
                         .with_label("Range")
                         .with_size(VectorSize::Vec2)
                         .with_suffixes(VectorSuffixes::Range)
                         .with_default_values(vec![channel.range.min, channel.range.max]),
-                ),
-            ));
+                ))
+                .insert(RangeEdit(curve_edit_entity))
+                .insert(ChildOf(parent_target));
         });
     }
 }
@@ -1006,7 +1009,7 @@ fn update_curve_visuals(
             if mat_node.0 != curve_edit_entity {
                 continue;
             }
-            if let Some(material) = curve_materials.get_mut(&material_node.0) {
+            if let Some(mut material) = curve_materials.get_mut(&material_node.0) {
                 *material =
                     CurveMaterial::from_channel(channel, state.curve_color(), state.fill_color());
             }
@@ -1438,7 +1441,7 @@ fn sync_range_inputs_to_state(
     states: Query<(Entity, &CurveEditState), Changed<CurveEditState>>,
     range_edits: Query<(Entity, &RangeEdit, &Children)>,
     vector_edits: Query<&Children, With<EditorVectorEdit>>,
-    mut text_inputs: Query<(Entity, &mut TextInputQueue), With<EditorTextEdit>>,
+    mut text_inputs: Query<(Entity, &mut EditableText), With<EditorTextEdit>>,
     parents: Query<&ChildOf>,
 ) {
     for (curve_edit_entity, state) in &states {
@@ -1461,14 +1464,13 @@ fn sync_range_inputs_to_state(
                     };
                     let text = value.to_string();
 
-                    for (text_input_entity, mut queue) in &mut text_inputs {
-                        if input_focus.0 == Some(text_input_entity) {
+                    for (text_input_entity, mut editable) in &mut text_inputs {
+                        if input_focus.get() == Some(text_input_entity) {
                             continue;
                         }
 
                         if is_descendant_of(text_input_entity, vector_child, &parents) {
-                            queue.add(TextInputAction::Edit(TextInputEdit::SelectAll));
-                            queue.add(TextInputAction::Edit(TextInputEdit::Paste(text.clone())));
+                            set_text_input_value(&mut editable, text.clone());
                         }
                     }
                 }
@@ -1484,10 +1486,10 @@ fn handle_range_blur(
     mut states: Query<&mut CurveEditState>,
     range_edits: Query<(Entity, &RangeEdit, &Children)>,
     vector_edits: Query<&Children, With<EditorVectorEdit>>,
-    text_inputs: Query<&bevy_ui_text_input::TextInputBuffer, With<EditorTextEdit>>,
+    text_inputs: Query<&EditableText, With<EditorTextEdit>>,
     parents: Query<&ChildOf>,
 ) {
-    let current_focus = input_focus.0;
+    let current_focus = input_focus.get();
     let previous_focus = *last_focus;
     *last_focus = current_focus;
 
@@ -1498,7 +1500,7 @@ fn handle_range_blur(
         return;
     }
 
-    let Ok(buffer) = text_inputs.get(blurred_entity) else {
+    let Ok(editable) = text_inputs.get(blurred_entity) else {
         return;
     };
 
@@ -1518,7 +1520,7 @@ fn handle_range_blur(
                     continue;
                 }
 
-                let text = buffer.get_text();
+                let text = editable.value().to_string();
                 if text.is_empty() {
                     return;
                 }
@@ -1670,6 +1672,7 @@ fn spawn_enum_options<T, C, F>(
     C: Component,
     F: Fn(T, bool) -> C,
 {
+    let parent_entity = parent.target_entity();
     let bevy::reflect::TypeInfo::Enum(info) = T::type_info() else {
         return;
     };
@@ -1682,10 +1685,13 @@ fn spawn_enum_options<T, C, F>(
         let is_active = value == current && !is_disabled;
         let variant = menu_button_variant(is_active, is_disabled);
 
-        parent.spawn((
-            make_component(value, is_disabled),
-            button(ButtonProps::new(&name).with_variant(variant).align_left()),
-        ));
+        parent
+            .commands()
+            .spawn_scene(button(
+                ButtonProps::new(&name).with_variant(variant).align_left(),
+            ))
+            .insert(make_component(value, is_disabled))
+            .insert(ChildOf(parent_entity));
     }
 }
 
@@ -1731,18 +1737,20 @@ fn spawn_delete_option(
 ) {
     let variant = menu_button_variant(false, !can_delete);
 
-    parent.spawn((
-        DeletePointOption {
-            curve_edit,
-            point_index,
-            disabled: !can_delete,
-        },
-        button(
+    let parent_entity = parent.target_entity();
+    parent
+        .commands()
+        .spawn_scene(button(
             ButtonProps::new("Delete")
                 .with_variant(variant)
                 .align_left(),
-        ),
-    ));
+        ))
+        .insert(DeletePointOption {
+            curve_edit,
+            point_index,
+            disabled: !can_delete,
+        })
+        .insert(ChildOf(parent_entity));
 }
 
 fn handle_point_right_click(
@@ -1778,15 +1786,13 @@ fn handle_point_right_click(
         let can_delete = channel.points.len() > 2;
 
         let popover_entity = commands
-            .spawn((
-                PointModeMenu,
-                popover(
-                    PopoverProps::new(handle_entity)
-                        .with_placement(PopoverPlacement::BottomStart)
-                        .with_padding(4.0)
-                        .with_z_index(300),
-                ),
+            .spawn_scene(popover(
+                PopoverProps::new(handle_entity)
+                    .with_placement(PopoverPlacement::BottomStart)
+                    .with_padding(4.0)
+                    .with_z_index(300),
             ))
+            .insert(PointModeMenu)
             .id();
 
         commands.entity(popover_entity).with_children(|parent| {

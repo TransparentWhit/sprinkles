@@ -5,8 +5,10 @@ mod sync;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::reflect::{
-    DynamicEnum, DynamicStruct, DynamicTuple, DynamicVariant, PartialReflect, ReflectMut,
-    ReflectRef, TypeInfo, VariantInfo,
+    PartialReflect, ReflectMut, ReflectRef, TypeInfo,
+    enums::{DynamicEnum, DynamicVariant, VariantInfo},
+    structs::DynamicStruct,
+    tuple::DynamicTuple,
 };
 use bevy_sprinkles::prelude::*;
 
@@ -46,7 +48,7 @@ pub(super) fn get_inspecting_emitter_mut<'a>(
         _ => return None,
     };
     let handle = editor_state.current_project.as_ref()?;
-    let asset = assets.get_mut(handle)?;
+    let asset = assets.get_mut(handle)?.into_inner();
     let emitter = asset.emitters.get_mut(inspecting.index as usize)?;
     Some((inspecting.index, emitter))
 }
@@ -74,7 +76,7 @@ pub(super) fn get_inspecting_collider_mut<'a>(
         _ => return None,
     };
     let handle = editor_state.current_project.as_ref()?;
-    let asset = assets.get_mut(handle)?;
+    let asset = assets.get_mut(handle)?.into_inner();
     let collider = asset.colliders.get_mut(inspecting.index as usize)?;
     Some((inspecting.index, collider))
 }
@@ -104,7 +106,7 @@ pub(super) fn get_inspected_data_mut<'a>(
 ) -> Option<&'a mut dyn Reflect> {
     let inspecting = editor_state.inspecting.as_ref()?;
     let handle = editor_state.current_project.as_ref()?;
-    let asset = assets.get_mut(handle)?;
+    let asset = assets.get_mut(handle)?.into_inner();
     match inspecting.kind {
         Inspectable::Emitter => {
             let emitter = asset.emitters.get_mut(inspecting.index as usize)?;
@@ -131,7 +133,7 @@ pub(super) fn get_asset_data_mut<'a>(
     assets: &'a mut Assets<ParticlesAsset>,
 ) -> Option<&'a mut dyn Reflect> {
     let handle = editor_state.current_project.as_ref()?;
-    let asset = assets.get_mut(handle)?;
+    let asset = assets.get_mut(handle)?.into_inner();
     Some(asset)
 }
 

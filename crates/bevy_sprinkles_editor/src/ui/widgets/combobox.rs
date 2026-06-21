@@ -22,7 +22,7 @@ pub fn plugin(app: &mut App) {
         );
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 pub struct EditorComboBox;
 
 #[derive(Component)]
@@ -31,7 +31,7 @@ pub struct ComboBoxTrigger(pub Entity);
 #[derive(Component)]
 pub struct ComboBoxPopover(pub Entity);
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone)]
 struct ComboBoxState {
     popover: Option<Entity>,
     last_synced_selected: Option<usize>,
@@ -85,7 +85,7 @@ enum ComboBoxStyle {
     IconOnly,
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 pub(crate) struct ComboBoxConfig {
     options: Vec<ComboBoxOptionData>,
     pub(crate) selected: usize,
@@ -104,96 +104,98 @@ pub struct ComboBoxChangeEvent {
     pub value: Option<String>,
 }
 
-pub fn combobox(options: Vec<impl Into<ComboBoxOptionData>>) -> impl Bundle {
+pub fn combobox(options: Vec<impl Into<ComboBoxOptionData>>) -> impl Scene {
     combobox_with_selected(options, 0)
 }
 
 pub fn combobox_with_selected(
     options: Vec<impl Into<ComboBoxOptionData>>,
     selected: usize,
-) -> impl Bundle {
-    (
-        EditorComboBox,
-        ComboBoxConfig {
-            options: options.into_iter().map(Into::into).collect(),
-            selected,
-            icon: None,
-            style: ComboBoxStyle::Default,
-            label_override: None,
-            highlight_selected: true,
-            initialized: false,
-        },
-        ComboBoxState::default(),
-        Node {
-            width: percent(100),
-            ..default()
-        },
-    )
+) -> impl Scene {
+    let config = ComboBoxConfig {
+        options: options.into_iter().map(Into::into).collect(),
+        selected,
+        icon: None,
+        style: ComboBoxStyle::Default,
+        label_override: None,
+        highlight_selected: true,
+        initialized: false,
+    };
+
+    bsn! {
+        EditorComboBox
+        template_value(config)
+        ComboBoxState
+        Node { width: percent(100) }
+    }
 }
 
 pub fn combobox_with_label(
     options: Vec<impl Into<ComboBoxOptionData>>,
     label: impl Into<String>,
-) -> impl Bundle {
-    (
-        EditorComboBox,
-        ComboBoxConfig {
-            options: options.into_iter().map(Into::into).collect(),
-            selected: 0,
-            icon: None,
-            style: ComboBoxStyle::Default,
-            label_override: Some(label.into()),
-            highlight_selected: false,
-            initialized: false,
-        },
-        ComboBoxState::default(),
-        Node {
-            width: percent(100),
-            ..default()
-        },
-    )
+) -> impl Scene {
+    let config = ComboBoxConfig {
+        options: options.into_iter().map(Into::into).collect(),
+        selected: 0,
+        icon: None,
+        style: ComboBoxStyle::Default,
+        label_override: Some(label.into()),
+        highlight_selected: false,
+        initialized: false,
+    };
+
+    bsn! {
+        EditorComboBox
+        template_value(config)
+        ComboBoxState
+        Node { width: percent(100) }
+    }
 }
 
-pub fn combobox_icon(options: Vec<impl Into<ComboBoxOptionData>>) -> impl Bundle {
-    (
-        EditorComboBox,
-        ComboBoxConfig {
-            options: options.into_iter().map(Into::into).collect(),
-            selected: 0,
-            icon: None,
-            style: ComboBoxStyle::IconOnly,
-            label_override: None,
-            highlight_selected: false,
-            initialized: false,
-        },
-        ComboBoxState::default(),
-        Node::default(),
-    )
+pub fn combobox_icon(options: Vec<impl Into<ComboBoxOptionData>>) -> impl Scene {
+    let config = ComboBoxConfig {
+        options: options.into_iter().map(Into::into).collect(),
+        selected: 0,
+        icon: None,
+        style: ComboBoxStyle::IconOnly,
+        label_override: None,
+        highlight_selected: false,
+        initialized: false,
+    };
+
+    bsn! {
+        EditorComboBox
+        template_value(config)
+        ComboBoxState
+        Node
+    }
 }
 
 pub fn combobox_icon_with_selected(
     options: Vec<impl Into<ComboBoxOptionData>>,
     selected: usize,
-) -> impl Bundle {
-    (
-        EditorComboBox,
-        ComboBoxConfig {
-            options: options.into_iter().map(Into::into).collect(),
-            selected,
-            icon: None,
-            style: ComboBoxStyle::IconOnly,
-            label_override: None,
-            highlight_selected: true,
-            initialized: false,
-        },
-        ComboBoxState::default(),
-        Node::default(),
-    )
+) -> impl Scene {
+    let config = ComboBoxConfig {
+        options: options.into_iter().map(Into::into).collect(),
+        selected,
+        icon: None,
+        style: ComboBoxStyle::IconOnly,
+        label_override: None,
+        highlight_selected: true,
+        initialized: false,
+    };
+
+    bsn! {
+        EditorComboBox
+        template_value(config)
+        ComboBoxState
+        Node
+    }
 }
 
 fn setup_combobox(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    _asset_server: Res<AssetServer>,
     mut configs: Query<(Entity, &mut ComboBoxConfig)>,
 ) {
     for (entity, mut config) in &mut configs {
@@ -204,13 +206,10 @@ fn setup_combobox(
 
         let trigger_entity = match config.style {
             ComboBoxStyle::IconOnly => commands
-                .spawn((
-                    ComboBoxTrigger(entity),
-                    icon_button(
-                        IconButtonProps::new(ICON_MORE).variant(ButtonVariant::Ghost),
-                        &asset_server,
-                    ),
+                .spawn_scene(icon_button(
+                    IconButtonProps::new(ICON_MORE).variant(ButtonVariant::Ghost),
                 ))
+                .insert(ComboBoxTrigger(entity))
                 .id(),
             ComboBoxStyle::Default => {
                 let selected_option = config.options.get(config.selected);
@@ -232,7 +231,8 @@ fn setup_combobox(
                 }
 
                 commands
-                    .spawn((ComboBoxTrigger(entity), button(button_props)))
+                    .spawn_scene(button(button_props))
+                    .insert(ComboBoxTrigger(entity))
                     .id()
             }
         };
@@ -321,19 +321,17 @@ fn handle_trigger_click(
     }
 
     let popover_entity = commands
-        .spawn((
-            ComboBoxPopover(combobox_entity),
-            popover(
-                PopoverProps::new(trigger.entity)
-                    .with_placement(PopoverPlacement::BottomStart)
-                    .with_padding(4.0)
-                    .with_z_index(200)
-                    .with_node(Node {
-                        min_width: px(120.0),
-                        ..default()
-                    }),
-            ),
+        .spawn_scene(popover(
+            PopoverProps::new(trigger.entity)
+                .with_placement(PopoverPlacement::BottomStart)
+                .with_padding(4.0)
+                .with_z_index(200)
+                .with_node(Node {
+                    min_width: px(120.0),
+                    ..default()
+                }),
         ))
+        .insert(ComboBoxPopover(combobox_entity))
         .id();
 
     state.popover = Some(popover_entity);
@@ -353,15 +351,15 @@ fn handle_trigger_click(
             button_props = button_props.with_left_icon(icon_path);
         }
 
-        commands.entity(popover_entity).with_child((
-            ComboBoxOption {
+        commands
+            .spawn_scene(button(button_props))
+            .insert(ComboBoxOption {
                 combobox: combobox_entity,
                 index,
                 label: option.label.clone(),
                 value: option.value.clone(),
-            },
-            button(button_props),
-        ));
+            })
+            .insert(ChildOf(popover_entity));
     }
 }
 

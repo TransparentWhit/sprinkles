@@ -9,7 +9,7 @@ use bevy::prelude::*;
 use components::data_panel::data_panel;
 use components::inspector::inspector_panel;
 use components::sidebar::sidebar;
-use components::topbar::topbar;
+use components::topbar::spawn_topbar;
 use components::viewport::{setup_viewport, viewport_container};
 
 const SHADER_COMMON: Handle<Shader> = uuid_handle!("81dc1f0a-ec1e-4913-862a-1ec536a2a792");
@@ -58,30 +58,37 @@ impl Plugin for EditorUiPlugin {
     }
 }
 
-fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn((
-        Node {
+fn setup_ui(mut commands: Commands) {
+    let root = commands
+        .spawn(Node {
             width: percent(100),
             height: percent(100),
             flex_direction: FlexDirection::Column,
             ..default()
-        },
-        children![
-            topbar(&asset_server),
-            (
-                Node {
-                    width: percent(100),
-                    flex_grow: 1.0,
-                    min_height: px(0.0),
-                    ..default()
-                },
-                children![
-                    sidebar(),
-                    data_panel(&asset_server),
-                    inspector_panel(&asset_server),
-                    viewport_container(),
-                ],
-            ),
-        ],
-    ));
+        })
+        .id();
+
+    spawn_topbar(&mut commands, root);
+
+    let main_row = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_grow: 1.0,
+                min_height: px(0.0),
+                ..default()
+            },
+            ChildOf(root),
+        ))
+        .id();
+
+    let data_panel_entity = commands.spawn_scene(data_panel()).id();
+    let inspector_panel_entity = commands.spawn_scene(inspector_panel()).id();
+    let viewport = commands.spawn_scene(viewport_container()).id();
+    commands
+        .entity(main_row)
+        .add_children(&[data_panel_entity, inspector_panel_entity, viewport]);
+
+    let sidebar = commands.spawn_scene(sidebar()).id();
+    commands.entity(main_row).insert_children(0, &[sidebar]);
 }

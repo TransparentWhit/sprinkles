@@ -2,9 +2,8 @@ use std::time::Duration;
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
+use bevy::text::FontSourceTemplate;
 use bevy_easings::{CustomComponentEase, EaseFunction, EasingComponent, EasingType, Lerp};
-
-use bevy_ui_text_input::TextInputPrompt;
 
 use crate::ui::icons::ICON_CLOSE;
 use crate::ui::tokens::{
@@ -40,25 +39,25 @@ pub fn plugin(app: &mut App) {
         );
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 pub struct EditorDialog;
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct DialogBackdrop;
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct DialogPanel;
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct DialogCloseButton;
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct DialogCancelButton;
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct DialogActionButton;
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 pub struct DialogChildrenSlot;
 
 #[derive(Component, Default, Clone, Copy)]
@@ -77,7 +76,7 @@ impl DialogVariant {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct DialogConfig {
     close_on_click_outside: bool,
     close_on_esc: bool,
@@ -215,9 +214,6 @@ impl Lerp for DialogVisual {
 }
 
 #[derive(Component)]
-struct PromptBaseAlpha(f32);
-
-#[derive(Component)]
 struct BaseBgAlpha(f32);
 
 #[derive(Component)]
@@ -226,20 +222,18 @@ struct DespawningDialog;
 fn on_open_dialog(
     event: On<OpenDialogEvent>,
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     existing: Query<Entity, With<EditorDialog>>,
 ) {
     if !existing.is_empty() {
         return;
     }
 
-    spawn_dialog(&mut commands, &asset_server, &event);
+    spawn_dialog(&mut commands, &event);
 }
 
 fn on_open_confirmation_dialog(
     event: On<OpenConfirmationDialogEvent>,
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     existing: Query<Entity, With<EditorDialog>>,
 ) {
     if !existing.is_empty() {
@@ -247,12 +241,10 @@ fn on_open_confirmation_dialog(
     }
 
     let dialog_event: OpenDialogEvent = event.event().into();
-    spawn_dialog(&mut commands, &asset_server, &dialog_event);
+    spawn_dialog(&mut commands, &dialog_event);
 }
 
-fn spawn_dialog(commands: &mut Commands, asset_server: &AssetServer, event: &OpenDialogEvent) {
-    let font: Handle<Font> = asset_server.load(FONT_PATH);
-
+fn spawn_dialog(commands: &mut Commands, event: &OpenDialogEvent) {
     let start_visual = DialogVisual {
         scale: Vec2::splat(0.9),
         opacity: 0.0,
@@ -264,182 +256,188 @@ fn spawn_dialog(commands: &mut Commands, asset_server: &AssetServer, event: &Ope
         offset_y: 0.0,
     };
 
-    let backdrop_id = commands
-        .spawn((
-            DialogBackdrop,
-            Interaction::None,
-            Node {
-                width: percent(100),
-                height: percent(100),
-                position_type: PositionType::Absolute,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(Color::BLACK.with_alpha(0.0)),
-        ))
-        .id();
-
-    let has_header = event.title.is_some() || event.description.is_some();
-    let has_footer = event.action.is_some() || event.cancel.is_some();
-
-    let header_id = if has_header {
-        let mut header = commands.spawn((
-            Node {
-                padding: UiRect::all(px(24)),
-                border: UiRect::bottom(px(1)),
-                flex_direction: FlexDirection::Column,
-                row_gap: px(6),
-                ..default()
-            },
-            BorderColor::all(BORDER_COLOR.with_alpha(0.0)),
-        ));
-
-        if let Some(title) = &event.title {
-            header.with_child((
-                Text::new(title),
-                TextFont {
-                    font: font.clone(),
-                    font_size: TEXT_SIZE_XL,
-                    weight: FontWeight::SEMIBOLD,
-                    ..default()
+    let dialog = commands.spawn_scene(dialog_scene(event)).id();
+    commands.entity(dialog).insert(
+        start_visual
+            .ease_to(
+                end_visual,
+                EaseFunction::QuinticOut,
+                EasingType::Once {
+                    duration: ANIMATION_DURATION,
                 },
-                TextColor(TEXT_DISPLAY_COLOR.with_alpha(0.0).into()),
-            ));
-        }
+            )
+            .with_original_value(),
+    );
+}
 
-        if let Some(desc) = &event.description {
-            header.with_child((
-                Text::new(desc),
-                TextFont {
-                    font: font.clone(),
-                    font_size: TEXT_SIZE_LG,
-                    ..default()
-                },
-                TextColor(TEXT_MUTED_COLOR.with_alpha(0.0).into()),
-            ));
-        }
-
-        Some(header.id())
-    } else {
-        None
+fn dialog_scene(event: &OpenDialogEvent) -> impl Scene {
+    let variant = event.variant;
+    let config = DialogConfig {
+        close_on_click_outside: event.close_on_click_outside,
+        close_on_esc: event.close_on_esc,
     };
+    let max_width = event.max_width.unwrap_or(px(448));
 
-    let footer_id = if has_footer {
-        let mut footer = commands.spawn(Node {
-            padding: UiRect::all(px(24)),
-            column_gap: px(6),
-            justify_content: JustifyContent::End,
-            ..default()
-        });
+    let mut panel_children: Vec<Box<dyn SceneList>> = Vec::new();
+    if event.title.is_some() || event.description.is_some() {
+        panel_children.push(Box::new(bsn_list![
+            (dialog_header(event.title.clone(), event.description.clone()))
+        ]) as Box<dyn SceneList>);
+    }
+    panel_children.push(
+        Box::new(bsn_list![(dialog_children_slot(event.content_padding))]) as Box<dyn SceneList>,
+    );
+    if event.action.is_some() || event.cancel.is_some() {
+        panel_children.push(Box::new(bsn_list![
+            (dialog_footer(event.cancel.clone(), event.action.clone(), variant))
+        ]) as Box<dyn SceneList>);
+    }
+    if event.has_close_button {
+        panel_children.push(Box::new(bsn_list![(dialog_close())]) as Box<dyn SceneList>);
+    }
 
-        if let Some(cancel) = &event.cancel {
-            footer.with_child((DialogCancelButton, button(ButtonProps::new(cancel))));
-        }
-
-        if let Some(action) = &event.action {
-            footer.with_child((
-                DialogActionButton,
-                button(
-                    ButtonProps::new(action).with_variant(event.variant.action_button_variant()),
-                ),
-            ));
-        }
-
-        Some(footer.id())
-    } else {
-        None
-    };
-
-    let mut panel = commands.spawn((
-        DialogPanel,
-        Interaction::None,
+    bsn! {
+        EditorDialog
+        template_value(variant)
+        template_value(config)
         Node {
             width: percent(100),
-            max_width: event.max_width.unwrap_or(px(448)),
-            border: UiRect::all(px(1)),
-            border_radius: BorderRadius::all(px(6)),
-            flex_direction: FlexDirection::Column,
-            ..default()
-        },
-        BackgroundColor(BACKGROUND_COLOR.with_alpha(0.0).into()),
-        BorderColor::all(BORDER_COLOR.with_alpha(0.0)),
-        UiTransform {
-            scale: Vec2::splat(0.9),
-            ..default()
-        },
-    ));
+            height: percent(100),
+            position_type: { PositionType::Absolute },
+        }
+        template_value(GlobalZIndex(200))
+        template_value(Pickable::IGNORE)
+        Children [
+            (
+                DialogBackdrop
+                Interaction
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    position_type: { PositionType::Absolute },
+                    justify_content: { JustifyContent::Center },
+                    align_items: { AlignItems::Center },
+                }
+                BackgroundColor({ Color::BLACK.with_alpha(0.0) })
+                Children [
+                    (
+                        DialogPanel
+                        Interaction
+                        Node {
+                            width: percent(100),
+                            max_width: { max_width },
+                            border: { UiRect::all(px(1)) },
+                            border_radius: { BorderRadius::all(px(6)) },
+                            flex_direction: { FlexDirection::Column },
+                        }
+                        BackgroundColor({ BACKGROUND_COLOR.with_alpha(0.0) })
+                        template_value(BorderColor::all(BORDER_COLOR.with_alpha(0.0)))
+                        template_value(UiTransform {
+                            scale: Vec2::splat(0.9),
+                            ..default()
+                        })
+                        Children [ { panel_children } ]
+                    )
+                ]
+            )
+        ]
+    }
+}
 
-    if let Some(header_id) = header_id {
-        panel.add_child(header_id);
+fn dialog_header(title: Option<String>, description: Option<String>) -> impl Scene {
+    let mut texts: Vec<Box<dyn SceneList>> = Vec::new();
+    if let Some(title) = title {
+        texts.push(Box::new(bsn_list![(
+            Text({ title })
+            TextFont {
+                font: { FontSourceTemplate::Handle(FONT_PATH.into()) },
+                font_size: TEXT_SIZE_XL,
+                weight: { FontWeight::SEMIBOLD },
+            }
+            TextColor({ TEXT_DISPLAY_COLOR.with_alpha(0.0) })
+        )]) as Box<dyn SceneList>);
+    }
+    if let Some(description) = description {
+        texts.push(Box::new(bsn_list![(
+            Text({ description })
+            TextFont {
+                font: { FontSourceTemplate::Handle(FONT_PATH.into()) },
+                font_size: TEXT_SIZE_LG,
+            }
+            TextColor({ TEXT_MUTED_COLOR.with_alpha(0.0) })
+        )]) as Box<dyn SceneList>);
     }
 
-    panel.with_child((
-        DialogChildrenSlot,
+    bsn! {
         Node {
-            display: Display::None,
-            padding: event.content_padding,
-            border: UiRect::bottom(px(1)),
-            flex_direction: FlexDirection::Column,
+            padding: { UiRect::all(px(24)) },
+            border: { UiRect::bottom(px(1)) },
+            flex_direction: { FlexDirection::Column },
+            row_gap: px(6),
+        }
+        template_value(BorderColor::all(BORDER_COLOR.with_alpha(0.0)))
+        Children [ { texts } ]
+    }
+}
+
+fn dialog_children_slot(content_padding: UiRect) -> impl Scene {
+    bsn! {
+        DialogChildrenSlot
+        Node {
+            display: { Display::None },
+            padding: { content_padding },
+            border: { UiRect::bottom(px(1)) },
+            flex_direction: { FlexDirection::Column },
             row_gap: px(12),
-            ..default()
-        },
-        BorderColor::all(BORDER_COLOR.with_alpha(0.0)),
-    ));
+        }
+        template_value(BorderColor::all(BORDER_COLOR.with_alpha(0.0)))
+    }
+}
 
-    if let Some(footer_id) = footer_id {
-        panel.add_child(footer_id);
+fn dialog_footer(
+    cancel: Option<String>,
+    action: Option<String>,
+    variant: DialogVariant,
+) -> impl Scene {
+    let mut buttons: Vec<Box<dyn SceneList>> = Vec::new();
+    if let Some(cancel) = cancel {
+        buttons.push(Box::new(bsn_list![(
+            DialogCancelButton
+            button(ButtonProps::new(cancel))
+        )]) as Box<dyn SceneList>);
+    }
+    if let Some(action) = action {
+        let action_variant = variant.action_button_variant();
+        buttons.push(Box::new(bsn_list![(
+            DialogActionButton
+            button(ButtonProps::new(action).with_variant(action_variant))
+        )]) as Box<dyn SceneList>);
     }
 
-    if event.has_close_button {
-        panel.with_child((
-            Node {
-                position_type: PositionType::Absolute,
-                top: px(20),
-                right: px(20),
-                ..default()
-            },
-            children![(
-                DialogCloseButton,
-                icon_button(
-                    IconButtonProps::new(ICON_CLOSE).variant(ButtonVariant::Ghost),
-                    asset_server,
-                ),
-            )],
-        ));
+    bsn! {
+        Node {
+            padding: { UiRect::all(px(24)) },
+            column_gap: px(6),
+            justify_content: { JustifyContent::End },
+        }
+        Children [ { buttons } ]
     }
+}
 
-    let panel_id = panel.id();
-
-    commands.entity(backdrop_id).add_child(panel_id);
-
-    commands
-        .spawn((
-            EditorDialog,
-            event.variant,
-            DialogConfig {
-                close_on_click_outside: event.close_on_click_outside,
-                close_on_esc: event.close_on_esc,
-            },
-            Node {
-                width: percent(100),
-                height: percent(100),
-                position_type: PositionType::Absolute,
-                ..default()
-            },
-            GlobalZIndex(200),
-            Pickable::IGNORE,
-            start_visual
-                .ease_to(
-                    end_visual,
-                    EaseFunction::QuinticOut,
-                    EasingType::Once {
-                        duration: ANIMATION_DURATION,
-                    },
-                )
-                .with_original_value(),
-        ))
-        .add_child(backdrop_id);
+fn dialog_close() -> impl Scene {
+    bsn! {
+        Node {
+            position_type: { PositionType::Absolute },
+            top: px(20),
+            right: px(20),
+        }
+        Children [
+            (
+                DialogCloseButton
+                icon_button(IconButtonProps::new(ICON_CLOSE).variant(ButtonVariant::Ghost))
+            )
+        ]
+    }
 }
 
 fn dismiss_dialog(commands: &mut Commands, entity: Entity, visual: &DialogVisual) {
@@ -471,8 +469,6 @@ struct AlphaQueries<'w, 's> {
     border_colors: Query<'w, 's, &'static mut BorderColor>,
     text_colors: Query<'w, 's, &'static mut TextColor>,
     image_nodes: Query<'w, 's, &'static mut ImageNode>,
-    prompts: Query<'w, 's, (Entity, &'static mut TextInputPrompt)>,
-    base_alphas: Query<'w, 's, &'static PromptBaseAlpha>,
     base_bg_alphas: Query<'w, 's, &'static BaseBgAlpha>,
     children: Query<'w, 's, &'static Children>,
     buttons: Query<'w, 's, &'static ButtonVariant, With<EditorButton>>,
@@ -526,18 +522,6 @@ impl AlphaQueries<'_, '_> {
             image.color = base.with_alpha(alpha).into();
         }
 
-        if let Ok((_, mut prompt)) = self.prompts.get_mut(entity) {
-            if let Some(color) = &mut prompt.color {
-                let base: Srgba = (*color).into();
-                let base_alpha = self
-                    .base_alphas
-                    .get(entity)
-                    .map(|b| b.0)
-                    .unwrap_or(base.alpha);
-                *color = base.with_alpha(base_alpha * alpha).into();
-            }
-        }
-
         if let Ok(children) = self.children.get(entity) {
             let children: Vec<Entity> = children.iter().collect();
             for child in children {
@@ -580,18 +564,6 @@ fn sync_dialog_visual(
     mut alpha_queries: AlphaQueries,
     backdrop_query: Query<Entity, With<DialogBackdrop>>,
 ) {
-    if !dialogs.is_empty() {
-        for (entity, prompt) in &alpha_queries.prompts {
-            if alpha_queries.base_alphas.contains(entity) {
-                continue;
-            }
-            if let Some(color) = prompt.color {
-                let base: Srgba = color.into();
-                commands.entity(entity).insert(PromptBaseAlpha(base.alpha));
-            }
-        }
-    }
-
     let mut pending_base_bg = Vec::new();
 
     for (visual, dialog_children) in &dialogs {

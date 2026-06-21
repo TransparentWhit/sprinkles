@@ -7,10 +7,7 @@ use crate::ui::widgets::combobox::{ComboBoxChangeEvent, ComboBoxOptionData};
 use crate::ui::widgets::inspector_field::{InspectorFieldProps, fields_row, spawn_inspector_field};
 use crate::ui::widgets::text_edit::{TextEditProps, text_edit};
 
-use super::{
-    DynamicSectionContent, InspectorSection, inspector_section, section_needs_setup,
-    spawn_labeled_combobox,
-};
+use super::{DynamicSectionContent, InspectorSection, section_needs_setup, spawn_labeled_combobox};
 use crate::ui::components::binding::{EmitterWriter, FieldBinding};
 use crate::ui::components::inspector::FieldKind;
 
@@ -30,11 +27,8 @@ pub fn plugin(app: &mut App) {
     );
 }
 
-pub fn collision_section(asset_server: &AssetServer) -> impl Bundle {
-    (
-        CollisionSection,
-        inspector_section(InspectorSection::new("Collision", vec![]), asset_server),
-    )
+pub fn collision_section() -> (impl Bundle, InspectorSection) {
+    (CollisionSection, InspectorSection::new("Collision", vec![]))
 }
 
 fn collision_mode_index(mode: &Option<EmitterCollisionMode>) -> usize {
@@ -112,26 +106,29 @@ fn setup_collision_content(
 
             if is_rigid {
                 parent.spawn(fields_row()).with_children(|row| {
-                    row.spawn((
-                        FieldBinding::emitter_variant_field(
-                            "collision.mode",
-                            "friction",
-                            FieldKind::F32,
-                        ),
-                        text_edit(
+                    let row_target = row.target_entity();
+                    row.commands()
+                        .spawn_scene(text_edit(
                             TextEditProps::default()
                                 .with_label("Friction")
                                 .numeric_f32(),
-                        ),
-                    ));
-                    row.spawn((
-                        FieldBinding::emitter_variant_field(
+                        ))
+                        .insert(FieldBinding::emitter_variant_field(
+                            "collision.mode",
+                            "friction",
+                            FieldKind::F32,
+                        ))
+                        .insert(ChildOf(row_target));
+                    row.commands()
+                        .spawn_scene(text_edit(
+                            TextEditProps::default().with_label("Bounce").numeric_f32(),
+                        ))
+                        .insert(FieldBinding::emitter_variant_field(
                             "collision.mode",
                             "bounce",
                             FieldKind::F32,
-                        ),
-                        text_edit(TextEditProps::default().with_label("Bounce").numeric_f32()),
-                    ));
+                        ))
+                        .insert(ChildOf(row_target));
                 });
             }
         })

@@ -68,9 +68,10 @@ fn position_link_hitboxes(
         let mut found = false;
 
         for glyph in &layout.glyphs {
-            if glyph.span_index == hitbox.link_span_index {
-                let w = glyph.size.x * scale;
-                let h = glyph.size.y * scale;
+            if glyph.section_index == hitbox.link_span_index {
+                let size = glyph.atlas_info.rect.size();
+                let w = size.x * scale;
+                let h = size.y * scale;
                 let x = glyph.position.x * scale - w / 2.0;
                 let y = glyph.position.y * scale - h / 2.0;
                 min_x = min_x.min(x);

@@ -15,7 +15,7 @@ use crate::ui::widgets::vector_edit::VectorSuffixes;
 
 use super::types::{FieldKind, VariantField};
 use super::utils::{VariantConfig, combobox_options_from_reflect, variants_from_reflect};
-use super::{InspectorItem, InspectorSection, inspector_section};
+use super::{InspectorItem, InspectorSection};
 use crate::ui::icons::{
     ICON_CONE, ICON_CUBE, ICON_MESH_CYLINDER, ICON_MESH_PLANE, ICON_MESH_UVSPHERE,
 };
@@ -36,48 +36,45 @@ pub fn plugin(app: &mut App) {
     );
 }
 
-pub fn draw_pass_section(asset_server: &AssetServer) -> impl Bundle {
+pub fn draw_pass_section() -> (impl Bundle, InspectorSection) {
     (
         DrawPassSection,
-        inspector_section(
-            InspectorSection::new(
-                "Draw pass",
+        InspectorSection::new(
+            "Draw pass",
+            vec![
                 vec![
-                    vec![
-                        InspectorItem::Variant {
-                            path: "draw_pass.mesh".into(),
-                            props: VariantEditProps::new("draw_pass.mesh")
-                                .with_variants(mesh_variants()),
-                        },
-                        InspectorItem::Variant {
-                            path: "draw_pass.material".into(),
-                            props: VariantEditProps::new("draw_pass.material")
-                                .with_variants(material_variants()),
-                        },
-                    ],
-                    vec![
-                        InspectorFieldProps::new("draw_pass.draw_order")
-                            .combobox(combobox_options_from_reflect::<DrawOrder>())
-                            .into(),
-                    ],
-                    vec![
-                        InspectorFieldProps::new("draw_pass.transform_align")
-                            .optional_combobox(transform_align_options())
-                            .into(),
-                    ],
-                    vec![
-                        InspectorFieldProps::new("draw_pass.shadow_caster")
-                            .bool()
-                            .into(),
-                    ],
-                    vec![
-                        InspectorFieldProps::new("draw_pass.use_local_coords")
-                            .bool()
-                            .into(),
-                    ],
+                    InspectorItem::Variant {
+                        path: "draw_pass.mesh".into(),
+                        props: VariantEditProps::new("draw_pass.mesh")
+                            .with_variants(mesh_variants()),
+                    },
+                    InspectorItem::Variant {
+                        path: "draw_pass.material".into(),
+                        props: VariantEditProps::new("draw_pass.material")
+                            .with_variants(material_variants()),
+                    },
                 ],
-            ),
-            asset_server,
+                vec![
+                    InspectorFieldProps::new("draw_pass.draw_order")
+                        .combobox(combobox_options_from_reflect::<DrawOrder>())
+                        .into(),
+                ],
+                vec![
+                    InspectorFieldProps::new("draw_pass.transform_align")
+                        .optional_combobox(transform_align_options())
+                        .into(),
+                ],
+                vec![
+                    InspectorFieldProps::new("draw_pass.shadow_caster")
+                        .bool()
+                        .into(),
+                ],
+                vec![
+                    InspectorFieldProps::new("draw_pass.use_local_coords")
+                        .bool()
+                        .into(),
+                ],
+            ],
         ),
     )
 }
@@ -299,18 +296,18 @@ fn spawn_cutoff_row(
                 ..default()
             },
         ))
-        .with_child((
-            cutoff_binding,
-            text_edit(
-                TextEditProps::default()
-                    .with_label("Cutoff")
-                    .with_default_value(crate::ui::components::binding::format_f32(cutoff))
-                    .numeric_f32()
-                    .with_min(0.0)
-                    .with_max(1.0),
-            ),
-        ))
         .id();
+    commands
+        .spawn_scene(text_edit(
+            TextEditProps::default()
+                .with_label("Cutoff")
+                .with_default_value(crate::ui::components::binding::format_f32(cutoff))
+                .numeric_f32()
+                .with_min(0.0)
+                .with_max(1.0),
+        ))
+        .insert(cutoff_binding)
+        .insert(ChildOf(cutoff_row));
 
     commands
         .entity(container)
@@ -376,7 +373,9 @@ fn sync_trail_mesh_alert(
                             ..default()
                         },
                     ))
-                    .with_child(alert(
+                    .id();
+                commands
+                    .spawn_scene(alert(
                         AlertVariant::Warning,
                         vec![
                             AlertSpan::Text("You need to enable ".into()),
@@ -384,7 +383,7 @@ fn sync_trail_mesh_alert(
                             AlertSpan::Text(" to use this mesh correctly.".into()),
                         ],
                     ))
-                    .id();
+                    .insert(ChildOf(alert_entity));
                 commands
                     .entity(section_entity)
                     .insert_children(2, &[alert_entity]);

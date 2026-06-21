@@ -13,7 +13,7 @@ use crate::ui::widgets::inspector_field::fields_row;
 use crate::ui::widgets::text_edit::{TextEditProps, text_edit};
 use crate::utils::{MAX_DISPLAY_PATH_LEN, truncate_path};
 
-use super::{DynamicSectionContent, InspectorSection, inspector_section, section_needs_setup};
+use super::{DynamicSectionContent, InspectorSection, section_needs_setup};
 use crate::ui::components::binding::FieldBinding;
 use crate::ui::components::inspector::FieldKind;
 
@@ -37,17 +37,17 @@ pub fn plugin(app: &mut App) {
         .add_observer(handle_reveal_file_click);
 }
 
-pub fn project_properties_section(asset_server: &AssetServer) -> impl Bundle {
+pub fn project_properties_section() -> (impl Bundle, InspectorSection) {
     (
         ProjectPropertiesSection,
-        inspector_section(InspectorSection::new("Properties", vec![]), asset_server),
+        InspectorSection::new("Properties", vec![]),
     )
 }
 
-pub fn project_runtime_section(asset_server: &AssetServer) -> impl Bundle {
+pub fn project_runtime_section() -> (impl Bundle, InspectorSection) {
     (
         ProjectRuntimeSection,
-        inspector_section(InspectorSection::new("Runtime", vec![]), asset_server),
+        InspectorSection::new("Runtime", vec![]),
     )
 }
 
@@ -82,21 +82,35 @@ fn setup_properties_content(
         ))
         .with_children(|parent| {
             parent.spawn(fields_row()).with_children(|row| {
-                row.spawn((
-                    FieldBinding::asset("name", FieldKind::String),
-                    text_edit(TextEditProps::default().with_label("Project name")),
-                ));
+                let row_target = row.target_entity();
+                row.commands()
+                    .spawn_scene(text_edit(
+                        TextEditProps::default().with_label("Project name"),
+                    ))
+                    .insert(FieldBinding::asset("name", FieldKind::String))
+                    .insert(ChildOf(row_target));
             });
 
             parent.spawn(fields_row()).with_children(|row| {
-                row.spawn((
-                    FieldBinding::asset("authors.submitted_by", FieldKind::String),
-                    text_edit(TextEditProps::default().with_label("Submitted by")),
-                ));
-                row.spawn((
-                    FieldBinding::asset("authors.inspired_by", FieldKind::String),
-                    text_edit(TextEditProps::default().with_label("Inspired by")),
-                ));
+                let row_target = row.target_entity();
+                row.commands()
+                    .spawn_scene(text_edit(
+                        TextEditProps::default().with_label("Submitted by"),
+                    ))
+                    .insert(FieldBinding::asset(
+                        "authors.submitted_by",
+                        FieldKind::String,
+                    ))
+                    .insert(ChildOf(row_target));
+                row.commands()
+                    .spawn_scene(text_edit(
+                        TextEditProps::default().with_label("Inspired by"),
+                    ))
+                    .insert(FieldBinding::asset(
+                        "authors.inspired_by",
+                        FieldKind::String,
+                    ))
+                    .insert(ChildOf(row_target));
             });
 
             if let Some(ref path) = file_path {
@@ -121,7 +135,7 @@ fn spawn_file_path_field(
     parent: &mut ChildSpawnerCommands,
     path: &PathBuf,
     font: &Handle<Font>,
-    asset_server: &AssetServer,
+    _asset_server: &AssetServer,
 ) {
     let display_path = truncate_path(&path.display().to_string(), MAX_DISPLAY_PATH_LEN);
 
@@ -138,8 +152,8 @@ fn spawn_file_path_field(
             col.spawn((
                 Text::new("File path"),
                 TextFont {
-                    font: font.clone(),
-                    font_size: TEXT_SIZE_SM,
+                    font: font.clone().into(),
+                    font_size: TEXT_SIZE_SM.into(),
                     weight: FontWeight::MEDIUM,
                     ..default()
                 },
@@ -161,8 +175,8 @@ fn spawn_file_path_field(
                 wrapper.spawn((
                     Text::new(display_path),
                     TextFont {
-                        font: font.clone(),
-                        font_size: TEXT_SIZE,
+                        font: font.clone().into(),
+                        font_size: TEXT_SIZE.into(),
                         ..default()
                     },
                     TextColor(TEXT_MUTED_COLOR.into()),
@@ -172,20 +186,22 @@ fn spawn_file_path_field(
                     },
                 ));
 
-                let mut browse = wrapper.spawn((
-                    RevealFileButton(path.clone()),
-                    icon_button(
+                let wrapper_target = wrapper.target_entity();
+                wrapper
+                    .commands()
+                    .spawn_scene(icon_button(
                         IconButtonProps::new(ICON_FOLDER_OPEN)
                             .variant(ButtonVariant::Ghost)
                             .with_size(ButtonSize::IconSM),
-                        asset_server,
-                    ),
-                ));
-                browse.entry::<Node>().and_modify(|mut node| {
-                    node.position_type = PositionType::Absolute;
-                    node.right = px(2.0);
-                    node.top = px(2.0);
-                });
+                    ))
+                    .insert(RevealFileButton(path.clone()))
+                    .insert(ChildOf(wrapper_target))
+                    .entry::<Node>()
+                    .and_modify(|mut node| {
+                        node.position_type = PositionType::Absolute;
+                        node.right = px(2.0);
+                        node.top = px(2.0);
+                    });
             });
         });
     });
@@ -193,7 +209,7 @@ fn spawn_file_path_field(
 
 fn setup_runtime_content(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    _asset_server: Res<AssetServer>,
     editor_state: Res<EditorState>,
     sections: Query<(Entity, &InspectorSection), With<ProjectRuntimeSection>>,
     existing: Query<Entity, With<ProjectRuntimeContent>>,
@@ -219,10 +235,11 @@ fn setup_runtime_content(
         ))
         .with_children(|parent| {
             parent.spawn(fields_row()).with_children(|row| {
-                row.spawn((
-                    FieldBinding::asset("despawn_on_finish", FieldKind::Bool),
-                    checkbox(CheckboxProps::new("Despawn on finish"), &asset_server),
-                ));
+                let row_target = row.target_entity();
+                row.commands()
+                    .spawn_scene(checkbox(CheckboxProps::new("Despawn on finish")))
+                    .insert(FieldBinding::asset("despawn_on_finish", FieldKind::Bool))
+                    .insert(ChildOf(row_target));
             });
         })
         .id();

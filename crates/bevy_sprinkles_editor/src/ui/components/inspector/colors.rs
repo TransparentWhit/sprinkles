@@ -10,7 +10,7 @@ use crate::ui::widgets::inspector_field::InspectorFieldProps;
 use crate::ui::widgets::variant_edit::{VariantDefinition, VariantEditProps};
 
 use super::utils::VariantConfig;
-use super::{InspectorItem, InspectorSection, inspector_section, section_needs_setup};
+use super::{InspectorItem, InspectorSection, section_needs_setup};
 
 #[derive(Component)]
 struct ColorsSection;
@@ -45,35 +45,32 @@ fn color_variants() -> Vec<VariantDefinition> {
     ])
 }
 
-pub fn colors_section(asset_server: &AssetServer) -> impl Bundle {
+pub fn colors_section() -> (impl Bundle, InspectorSection) {
     (
         ColorsSection,
-        inspector_section(
-            InspectorSection::new(
-                "Colors",
+        InspectorSection::new(
+            "Colors",
+            vec![
                 vec![
-                    vec![
-                        InspectorItem::Variant {
-                            path: "colors.initial_color".into(),
-                            props: VariantEditProps::new("colors.initial_color")
-                                .with_variants(color_variants())
-                                .with_swatch_slot(true),
-                        },
-                        InspectorFieldProps::new("colors.color_over_lifetime")
-                            .gradient()
-                            .into(),
-                    ],
-                    vec![
-                        InspectorFieldProps::new("colors.alpha_over_lifetime")
-                            .curve()
-                            .into(),
-                        InspectorFieldProps::new("colors.emission_over_lifetime")
-                            .curve()
-                            .into(),
-                    ],
+                    InspectorItem::Variant {
+                        path: "colors.initial_color".into(),
+                        props: VariantEditProps::new("colors.initial_color")
+                            .with_variants(color_variants())
+                            .with_swatch_slot(true),
+                    },
+                    InspectorFieldProps::new("colors.color_over_lifetime")
+                        .gradient()
+                        .into(),
                 ],
-            ),
-            asset_server,
+                vec![
+                    InspectorFieldProps::new("colors.alpha_over_lifetime")
+                        .curve()
+                        .into(),
+                    InspectorFieldProps::new("colors.emission_over_lifetime")
+                        .curve()
+                        .into(),
+                ],
+            ],
         ),
     )
 }
@@ -96,7 +93,10 @@ fn setup_alpha_alert(
                 ..default()
             },
         ))
-        .with_child(alert(
+        .id();
+
+    commands
+        .spawn_scene(alert(
             AlertVariant::Warning,
             vec![
                 AlertSpan::Text("To use ".into()),
@@ -106,7 +106,7 @@ fn setup_alpha_alert(
                 AlertSpan::Text(".".into()),
             ],
         ))
-        .id();
+        .insert(ChildOf(alert_entity));
 
     commands.entity(entity).add_child(alert_entity);
 }

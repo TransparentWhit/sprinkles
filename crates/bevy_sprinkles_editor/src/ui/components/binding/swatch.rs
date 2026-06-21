@@ -146,7 +146,7 @@ pub(super) fn sync_variant_swatch_from_color(
         if solid.0 != variant_edit {
             continue;
         }
-        if let Some(mat) = checkerboard_materials.get_mut(&mat_node.0) {
+        if let Some(mut mat) = checkerboard_materials.get_mut(&mat_node.0) {
             let c = trigger.color;
             mat.color = Vec4::new(c[0], c[1], c[2], c[3]);
         }

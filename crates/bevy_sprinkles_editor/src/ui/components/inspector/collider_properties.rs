@@ -8,10 +8,7 @@ use crate::ui::widgets::inspector_field::fields_row;
 use crate::ui::widgets::text_edit::{TextEditCommitEvent, TextEditProps, text_edit};
 use crate::ui::widgets::vector_edit::{VectorEditProps, VectorSuffixes, vector_edit};
 
-use super::{
-    DynamicSectionContent, InspectorSection, inspector_section, section_needs_setup,
-    spawn_labeled_combobox,
-};
+use super::{DynamicSectionContent, InspectorSection, section_needs_setup, spawn_labeled_combobox};
 use crate::ui::components::binding::{
     find_ancestor, find_ancestor_entity, format_f32, get_inspecting_collider,
     get_inspecting_collider_mut,
@@ -38,10 +35,10 @@ pub fn plugin(app: &mut App) {
         );
 }
 
-pub fn collider_properties_section(asset_server: &AssetServer) -> impl Bundle {
+pub fn collider_properties_section() -> (impl Bundle, InspectorSection) {
     (
         ColliderPropertiesSection,
-        inspector_section(InspectorSection::new("Properties", vec![]), asset_server),
+        InspectorSection::new("Properties", vec![]),
     )
 }
 
@@ -103,28 +100,30 @@ fn setup_collider_content(
             match &shape {
                 ParticlesColliderShape3D::Box { size } => {
                     parent.spawn(fields_row()).with_children(|row| {
-                        row.spawn((
-                            ColliderShapeField("size"),
-                            vector_edit(
+                        let row_target = row.target_entity();
+                        row.commands()
+                            .spawn_scene(vector_edit(
                                 VectorEditProps::default()
                                     .with_label("Size")
                                     .with_suffixes(VectorSuffixes::XYZ)
                                     .with_default_values(vec![size.x, size.y, size.z]),
-                            ),
-                        ));
+                            ))
+                            .insert(ColliderShapeField("size"))
+                            .insert(ChildOf(row_target));
                     });
                 }
                 ParticlesColliderShape3D::Sphere { radius } => {
                     parent.spawn(fields_row()).with_children(|row| {
-                        row.spawn((
-                            ColliderShapeField("radius"),
-                            text_edit(
+                        let row_target = row.target_entity();
+                        row.commands()
+                            .spawn_scene(text_edit(
                                 TextEditProps::default()
                                     .with_label("Radius")
                                     .with_default_value(format_f32(*radius))
                                     .numeric_f32(),
-                            ),
-                        ));
+                            ))
+                            .insert(ColliderShapeField("radius"))
+                            .insert(ChildOf(row_target));
                     });
                 }
             }

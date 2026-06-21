@@ -188,7 +188,7 @@ impl InspectorFieldProps {
 pub fn spawn_inspector_field(
     spawner: &mut ChildSpawnerCommands,
     props: InspectorFieldProps,
-    asset_server: &AssetServer,
+    _asset_server: &AssetServer,
 ) {
     let field = match props.target {
         BindingTarget::Asset => FieldBinding::asset(&props.path, props.kind.clone()),
@@ -200,7 +200,12 @@ pub fn spawn_inspector_field(
     let label = props.inferred_label();
 
     if props.kind == FieldKind::Bool {
-        spawner.spawn((field, checkbox(CheckboxProps::new(label), asset_server)));
+        let spawner_target = spawner.target_entity();
+        spawner
+            .commands()
+            .spawn_scene(checkbox(CheckboxProps::new(label)))
+            .insert(field)
+            .insert(ChildOf(spawner_target));
         return;
     }
 
@@ -220,20 +225,32 @@ pub fn spawn_inspector_field(
             vec_props = vec_props.with_max(max as f64);
         }
 
-        spawner.spawn((field, vector_edit(vec_props)));
+        let spawner_target = spawner.target_entity();
+        spawner
+            .commands()
+            .spawn_scene(vector_edit(vec_props))
+            .insert(field)
+            .insert(ChildOf(spawner_target));
         return;
     }
 
     if props.kind == FieldKind::Curve {
-        spawner.spawn((field, curve_edit(CurveEditProps::new().with_label(label))));
+        let spawner_target = spawner.target_entity();
+        spawner
+            .commands()
+            .spawn_scene(curve_edit(CurveEditProps::new().with_label(label)))
+            .insert(field)
+            .insert(ChildOf(spawner_target));
         return;
     }
 
     if props.kind == FieldKind::Gradient {
-        spawner.spawn((
-            field,
-            gradient_edit(GradientEditProps::new().with_label(label)),
-        ));
+        let spawner_target = spawner.target_entity();
+        spawner
+            .commands()
+            .spawn_scene(gradient_edit(GradientEditProps::new().with_label(label)))
+            .insert(field)
+            .insert(ChildOf(spawner_target));
         return;
     }
 
@@ -274,7 +291,12 @@ pub fn spawn_inspector_field(
         text_props = text_props.allow_empty();
     }
 
-    spawner.spawn((field, text_edit(text_props)));
+    let spawner_target = spawner.target_entity();
+    spawner
+        .commands()
+        .spawn_scene(text_edit(text_props))
+        .insert(field)
+        .insert(ChildOf(spawner_target));
 }
 
 fn combobox_data_to_options(data: &[ComboBoxOptionData]) -> Vec<ComboBoxOption> {
@@ -328,8 +350,8 @@ pub fn setup_combobox_fields(
             .spawn((
                 Text::new(&config.label),
                 TextFont {
-                    font: font.clone(),
-                    font_size: 11.0,
+                    font: font.clone().into(),
+                    font_size: 11.0_f32.into(),
                     weight: FontWeight::MEDIUM,
                     ..default()
                 },
@@ -337,7 +359,7 @@ pub fn setup_combobox_fields(
             ))
             .id();
 
-        let combobox_entity = commands.spawn(combobox(config.options.clone())).id();
+        let combobox_entity = commands.spawn_scene(combobox(config.options.clone())).id();
 
         commands
             .entity(entity)

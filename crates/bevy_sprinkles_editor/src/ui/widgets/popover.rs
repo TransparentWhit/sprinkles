@@ -1,5 +1,6 @@
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
+use bevy::text::FontSourceTemplate;
 use bevy::ui::UiGlobalTransform;
 use bevy::window::PrimaryWindow;
 
@@ -22,10 +23,10 @@ pub fn plugin(app: &mut App) {
     );
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 pub struct EditorPopover;
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone)]
 pub struct PopoverTracker {
     pub popover: Option<Entity>,
     pub trigger: Option<Entity>,
@@ -58,10 +59,10 @@ pub fn deactivate_trigger(
     }
 }
 
-#[derive(Component)]
+#[derive(Component, FromTemplate)]
 pub struct PopoverAnchor(pub Entity);
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone)]
 struct PopoverLayoutReady(bool);
 
 #[derive(Component, Default, Clone, Copy, PartialEq)]
@@ -186,7 +187,7 @@ impl PopoverProps {
     }
 }
 
-pub fn popover(props: PopoverProps) -> impl Bundle {
+pub fn popover(props: PopoverProps) -> impl Scene {
     let PopoverProps {
         placement,
         anchor,
@@ -197,28 +198,29 @@ pub fn popover(props: PopoverProps) -> impl Bundle {
     } = props;
 
     let base_node = node.unwrap_or_default();
+    let popover_node = Node {
+        position_type: PositionType::Absolute,
+        padding: UiRect::all(px(padding)),
+        row_gap: px(gap),
+        border: UiRect::all(px(1.0)),
+        border_radius: BorderRadius::all(CORNER_RADIUS_LG),
+        flex_direction: FlexDirection::Column,
+        ..base_node
+    };
 
-    (
-        EditorPopover,
-        PopoverAnchor(anchor),
-        PopoverLayoutReady::default(),
-        placement,
-        Hovered::default(),
-        Interaction::None,
-        Node {
-            position_type: PositionType::Absolute,
-            padding: UiRect::all(px(padding)),
-            row_gap: px(gap),
-            border: UiRect::all(px(1.0)),
-            border_radius: BorderRadius::all(CORNER_RADIUS_LG),
-            flex_direction: FlexDirection::Column,
-            ..base_node
-        },
-        Visibility::Hidden,
-        BackgroundColor(BACKGROUND_COLOR.into()),
-        BorderColor::all(BORDER_COLOR),
-        ZIndex(z_index),
-    )
+    bsn! {
+        EditorPopover
+        PopoverAnchor(anchor)
+        PopoverLayoutReady
+        template_value(placement)
+        Hovered
+        Interaction
+        template_value(popover_node)
+        template_value(Visibility::Hidden)
+        BackgroundColor({ BACKGROUND_COLOR })
+        template_value(BorderColor::all(BORDER_COLOR))
+        template_value(ZIndex(z_index))
+    }
 }
 
 fn handle_popover_position(
@@ -364,7 +366,7 @@ fn is_nested_in_popover(
     false
 }
 
-#[derive(Component)]
+#[derive(Component, FromTemplate)]
 pub struct PopoverCloseButton(Entity);
 
 pub struct PopoverHeaderProps {
@@ -381,40 +383,34 @@ impl PopoverHeaderProps {
     }
 }
 
-pub fn popover_header(props: PopoverHeaderProps, asset_server: &AssetServer) -> impl Bundle {
+pub fn popover_header(props: PopoverHeaderProps) -> impl Scene {
     let PopoverHeaderProps { title, popover } = props;
-    let font: Handle<Font> = asset_server.load(FONT_PATH);
 
-    (
+    bsn! {
         Node {
             width: percent(100),
-            padding: UiRect::new(px(12.0), px(6.0), px(6.0), px(6.0)),
-            border: UiRect::bottom(px(1.0)),
-            justify_content: JustifyContent::SpaceBetween,
-            align_items: AlignItems::Center,
-            ..default()
-        },
-        BorderColor::all(BORDER_COLOR),
-        children![
+            padding: { UiRect::new(px(12.0), px(6.0), px(6.0), px(6.0)) },
+            border: { UiRect::bottom(px(1.0)) },
+            justify_content: { JustifyContent::SpaceBetween },
+            align_items: { AlignItems::Center },
+        }
+        template_value(BorderColor::all(BORDER_COLOR))
+        Children [
             (
-                Text::new(title),
+                Text({ title })
                 TextFont {
-                    font: font.into(),
+                    font: { FontSourceTemplate::Handle(FONT_PATH.into()) },
                     font_size: TEXT_SIZE,
-                    weight: FontWeight::SEMIBOLD,
-                    ..default()
-                },
-                TextColor(TEXT_DISPLAY_COLOR.into()),
+                    weight: { FontWeight::SEMIBOLD },
+                }
+                TextColor(TEXT_DISPLAY_COLOR)
             ),
             (
-                PopoverCloseButton(popover),
-                icon_button(
-                    IconButtonProps::new(ICON_CLOSE).variant(ButtonVariant::Ghost),
-                    asset_server,
-                ),
+                PopoverCloseButton(popover)
+                icon_button(IconButtonProps::new(ICON_CLOSE).variant(ButtonVariant::Ghost))
             ),
-        ],
-    )
+        ]
+    }
 }
 
 pub fn popover_content() -> impl Bundle {
