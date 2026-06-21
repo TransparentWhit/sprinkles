@@ -109,8 +109,8 @@ fn setup_sidebar(mut commands: Commands, sidebars: Query<Entity, Added<EditorSid
             .spawn_scene(sidebar_button(SidebarTab::Outliner))
             .insert(ChildOf(entity));
         commands
-            .entity(entity)
-            .with_child(EditorSeparator::horizontal());
+            .spawn_scene(EditorSeparator::horizontal())
+            .insert(ChildOf(entity));
         commands
             .spawn_scene(sidebar_button(SidebarTab::Settings))
             .insert(ChildOf(entity));

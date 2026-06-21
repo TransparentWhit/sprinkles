@@ -6,7 +6,6 @@ use bevy::prelude::*;
 use crate::ui::icons::{ICON_CHECKBOX_CIRCLE, ICON_CLOSE, ICON_CLOSE_CIRCLE, ICON_INFORMATION};
 use crate::ui::tokens::{CORNER_RADIUS, FONT_PATH, TEXT_BODY_COLOR, TEXT_SIZE};
 use crate::ui::widgets::button::{ButtonVariant, IconButtonProps, icon_button};
-use crate::ui::widgets::separator::{SeparatorProps, separator};
 
 pub const TOAST_BOTTOM_OFFSET: f32 = 12.0;
 pub const DEFAULT_TOAST_DURATION: Duration = Duration::from_millis(3000);
@@ -115,7 +114,10 @@ pub fn toast(
                     ..default()
                 },
                 children![
-                    separator(SeparatorProps::vertical().with_alpha(0.)),
+                    Node {
+                        width: px(1),
+                        ..default()
+                    },
                     icon_button(
                         IconButtonProps::new(ICON_CLOSE)
                             .variant(ButtonVariant::Ghost)

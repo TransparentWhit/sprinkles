@@ -60,13 +60,17 @@ pub fn spawn_topbar(commands: &mut Commands, asset_server: &AssetServer, parent:
     commands.entity(bar).add_children(&[selector]);
 
     let right = commands.spawn_scene(topbar_right()).insert(ChildOf(bar)).id();
-    commands.entity(right).with_children(|parent| {
-        parent.spawn(seekbar(asset_server));
-        parent.spawn(playback_controls(asset_server));
-        parent.spawn(EditorSeparator::vertical());
-        parent.spawn((
+    commands.spawn(seekbar(asset_server)).insert(ChildOf(right));
+    commands
+        .spawn(playback_controls(asset_server))
+        .insert(ChildOf(right));
+    commands
+        .spawn_scene(EditorSeparator::vertical())
+        .insert(ChildOf(right));
+    commands
+        .spawn((
             SaveButton,
             button(ButtonProps::new("Save").with_variant(ButtonVariant::Primary)),
-        ));
-    });
+        ))
+        .insert(ChildOf(right));
 }
