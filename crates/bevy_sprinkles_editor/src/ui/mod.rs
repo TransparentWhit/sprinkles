@@ -9,7 +9,7 @@ use bevy::prelude::*;
 use components::data_panel::data_panel;
 use components::inspector::inspector_panel;
 use components::sidebar::sidebar;
-use components::topbar::topbar;
+use components::topbar::spawn_topbar;
 use components::viewport::{setup_viewport, viewport_container};
 
 const SHADER_COMMON: Handle<Shader> = uuid_handle!("81dc1f0a-ec1e-4913-862a-1ec536a2a792");
@@ -59,29 +59,30 @@ impl Plugin for EditorUiPlugin {
 }
 
 fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn((
-        Node {
+    let root = commands
+        .spawn(Node {
             width: percent(100),
             height: percent(100),
             flex_direction: FlexDirection::Column,
             ..default()
+        })
+        .id();
+
+    spawn_topbar(&mut commands, &asset_server, root);
+
+    commands.spawn((
+        Node {
+            width: percent(100),
+            flex_grow: 1.0,
+            min_height: px(0.0),
+            ..default()
         },
         children![
-            topbar(&asset_server),
-            (
-                Node {
-                    width: percent(100),
-                    flex_grow: 1.0,
-                    min_height: px(0.0),
-                    ..default()
-                },
-                children![
-                    sidebar(),
-                    data_panel(&asset_server),
-                    inspector_panel(&asset_server),
-                    viewport_container(),
-                ],
-            ),
+            sidebar(),
+            data_panel(&asset_server),
+            inspector_panel(&asset_server),
+            viewport_container(),
         ],
+        ChildOf(root),
     ));
 }

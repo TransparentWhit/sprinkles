@@ -25,41 +25,48 @@ fn on_save_button_click(_event: On<ButtonClickEvent>, mut commands: Commands) {
     commands.trigger(SaveProjectEvent);
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 pub struct EditorTopbar;
 
-pub fn topbar(asset_server: &AssetServer) -> impl Bundle {
-    (
-        EditorTopbar,
+pub fn topbar() -> impl Scene {
+    bsn! {
+        EditorTopbar
         Node {
             width: percent(100),
             height: px(52),
-            padding: UiRect::all(px(12)),
-            border: UiRect::bottom(px(1)),
-            justify_content: JustifyContent::SpaceBetween,
-            align_items: AlignItems::Center,
-            ..default()
-        },
-        BackgroundColor(BACKGROUND_COLOR.into()),
-        BorderColor::all(BORDER_COLOR),
-        children![
-            project_selector(),
-            (
-                Node {
-                    column_gap: px(12),
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                children![
-                    seekbar(asset_server),
-                    playback_controls(asset_server),
-                    EditorSeparator::vertical(),
-                    (
-                        SaveButton,
-                        button(ButtonProps::new("Save").with_variant(ButtonVariant::Primary)),
-                    ),
-                ],
-            ),
-        ],
-    )
+            padding: { UiRect::all(px(12)) },
+            border: { UiRect::bottom(px(1)) },
+            justify_content: { JustifyContent::SpaceBetween },
+            align_items: { AlignItems::Center },
+        }
+        BackgroundColor(BACKGROUND_COLOR)
+        template_value(BorderColor::all(BORDER_COLOR))
+    }
+}
+
+fn topbar_right() -> impl Scene {
+    bsn! {
+        Node {
+            column_gap: px(12),
+            align_items: { AlignItems::Center },
+        }
+    }
+}
+
+pub fn spawn_topbar(commands: &mut Commands, asset_server: &AssetServer, parent: Entity) {
+    let bar = commands.spawn_scene(topbar()).insert(ChildOf(parent)).id();
+
+    let selector = commands.spawn(project_selector()).id();
+    commands.entity(bar).add_children(&[selector]);
+
+    let right = commands.spawn_scene(topbar_right()).insert(ChildOf(bar)).id();
+    commands.entity(right).with_children(|parent| {
+        parent.spawn(seekbar(asset_server));
+        parent.spawn(playback_controls(asset_server));
+        parent.spawn(EditorSeparator::vertical());
+        parent.spawn((
+            SaveButton,
+            button(ButtonProps::new("Save").with_variant(ButtonVariant::Primary)),
+        ));
+    });
 }
