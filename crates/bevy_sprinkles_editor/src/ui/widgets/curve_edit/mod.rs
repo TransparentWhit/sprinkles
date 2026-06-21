@@ -118,7 +118,7 @@ pub fn plugin(app: &mut App) {
         );
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 pub struct EditorCurveEdit;
 
 #[derive(Component, Clone, Default)]
@@ -223,28 +223,27 @@ impl CurveEditProps {
     }
 }
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone)]
 pub struct CurveEditLabel(pub Option<String>);
 
-pub fn curve_edit(props: CurveEditProps) -> impl Bundle {
+pub fn curve_edit(props: CurveEditProps) -> impl Scene {
     let CurveEditProps { curve, label } = props;
 
     let state = curve.map(CurveEditState::from_curve).unwrap_or_default();
 
-    (
-        EditorCurveEdit,
-        CurveEditLabel(label),
-        state,
-        PopoverTracker::default(),
+    bsn! {
+        EditorCurveEdit
+        template_value(CurveEditLabel(label))
+        template_value(state)
+        PopoverTracker
         Node {
-            flex_direction: FlexDirection::Column,
-            row_gap: px(3.0),
+            flex_direction: { FlexDirection::Column },
+            row_gap: px(3),
             flex_grow: 1.0,
             flex_shrink: 1.0,
-            flex_basis: px(0.0),
-            ..default()
-        },
-    )
+            flex_basis: px(0),
+        }
+    }
 }
 
 #[derive(Component)]

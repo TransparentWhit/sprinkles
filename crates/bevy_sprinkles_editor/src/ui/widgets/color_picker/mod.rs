@@ -57,7 +57,7 @@ pub fn plugin(app: &mut App) {
         );
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 pub struct EditorColorPicker;
 
 #[derive(Component, Clone)]
@@ -194,22 +194,21 @@ impl ColorPickerProps {
     }
 }
 
-pub fn color_picker(props: ColorPickerProps) -> impl Bundle {
+pub fn color_picker(props: ColorPickerProps) -> impl Scene {
     let ColorPickerProps { color, inline } = props;
 
-    (
-        EditorColorPicker,
-        ColorPickerState::from_rgba(color),
-        ColorPickerConfig { inline },
-        PopoverTracker::default(),
+    bsn! {
+        EditorColorPicker
+        template_value(ColorPickerState::from_rgba(color))
+        template_value(ColorPickerConfig { inline })
+        PopoverTracker
         Node {
-            flex_direction: FlexDirection::Column,
-            ..default()
-        },
-    )
+            flex_direction: { FlexDirection::Column },
+        }
+    }
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct ColorPickerConfig {
     inline: bool,
 }

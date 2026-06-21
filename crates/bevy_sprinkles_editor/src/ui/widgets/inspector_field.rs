@@ -235,15 +235,22 @@ pub fn spawn_inspector_field(
     }
 
     if props.kind == FieldKind::Curve {
-        spawner.spawn((field, curve_edit(CurveEditProps::new().with_label(label))));
+        let spawner_target = spawner.target_entity();
+        spawner
+            .commands()
+            .spawn_scene(curve_edit(CurveEditProps::new().with_label(label)))
+            .insert(field)
+            .insert(ChildOf(spawner_target));
         return;
     }
 
     if props.kind == FieldKind::Gradient {
-        spawner.spawn((
-            field,
-            gradient_edit(GradientEditProps::new().with_label(label)),
-        ));
+        let spawner_target = spawner.target_entity();
+        spawner
+            .commands()
+            .spawn_scene(gradient_edit(GradientEditProps::new().with_label(label)))
+            .insert(field)
+            .insert(ChildOf(spawner_target));
         return;
     }
 

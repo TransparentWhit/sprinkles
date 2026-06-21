@@ -85,7 +85,7 @@ pub fn plugin(app: &mut App) {
         );
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 pub struct EditorGradientEdit;
 
 #[derive(Component, Clone, Default)]
@@ -141,7 +141,7 @@ impl GradientEditProps {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct GradientEditConfig {
     inline: bool,
     label: Option<String>,
@@ -164,25 +164,25 @@ const TRIGGER_SWATCH_BORDER_RADIUS: f32 = 4.0;
 const POPOVER_CONTENT_PADDING: f32 = 12.0;
 const POPOVER_CONTENT_WIDTH: f32 = 288.0;
 
-pub fn gradient_edit(props: GradientEditProps) -> impl Bundle {
+pub fn gradient_edit(props: GradientEditProps) -> impl Scene {
     let state = props
         .gradient
         .map(GradientEditState::from_gradient)
         .unwrap_or_default();
+    let config = GradientEditConfig {
+        inline: props.inline,
+        label: props.label,
+    };
 
-    (
-        EditorGradientEdit,
-        GradientEditConfig {
-            inline: props.inline,
-            label: props.label,
-        },
-        state,
-        PopoverTracker::default(),
+    bsn! {
+        EditorGradientEdit
+        template_value(config)
+        template_value(state)
+        PopoverTracker
         Node {
-            flex_direction: FlexDirection::Column,
-            ..default()
-        },
-    )
+            flex_direction: { FlexDirection::Column },
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -758,10 +758,10 @@ fn spawn_stop_rows(
                     .insert(StopPositionInput(StopRef::new(gradient_edit, i)))
                     .insert(ChildOf(row_target));
 
-                row.spawn((
-                    StopColorPicker(StopRef::new(gradient_edit, i)),
-                    color_picker(ColorPickerProps::new().with_color(stop.color)),
-                ));
+                row.commands()
+                    .spawn_scene(color_picker(ColorPickerProps::new().with_color(stop.color)))
+                    .insert(StopColorPicker(StopRef::new(gradient_edit, i)))
+                    .insert(ChildOf(row_target));
 
                 let delete_variant = if can_delete {
                     ButtonVariant::Ghost
@@ -833,10 +833,17 @@ fn on_handle_click(
         .id();
 
     commands.entity(popover_entity).with_children(|parent| {
-        parent.spawn((
-            HandleColorPicker(StopRef::new(handle.gradient_edit, handle.index)),
-            color_picker(ColorPickerProps::new().with_color(stop.color).inline()),
-        ));
+        let parent_target = parent.target_entity();
+        parent
+            .commands()
+            .spawn_scene(color_picker(
+                ColorPickerProps::new().with_color(stop.color).inline(),
+            ))
+            .insert(HandleColorPicker(StopRef::new(
+                handle.gradient_edit,
+                handle.index,
+            )))
+            .insert(ChildOf(parent_target));
     });
 }
 

@@ -776,7 +776,7 @@ fn spawn_field_widget(
             )
         }
 
-        FieldKind::Color => spawn_labeled_field(
+        FieldKind::Color => spawn_labeled_field_scene(
             commands,
             asset_server,
             &label,
@@ -784,7 +784,7 @@ fn spawn_field_widget(
             color_picker(ColorPickerProps::new()),
         ),
 
-        FieldKind::Gradient => spawn_labeled_field(
+        FieldKind::Gradient => spawn_labeled_field_scene(
             commands,
             asset_server,
             &label,
@@ -808,31 +808,6 @@ fn spawn_field_widget(
 
         FieldKind::Curve | FieldKind::AnimatedVelocity => commands.spawn_empty().id(),
     }
-}
-
-fn spawn_labeled_field(
-    commands: &mut Commands,
-    asset_server: &AssetServer,
-    label: &str,
-    binding: FieldBinding,
-    widget: impl Bundle,
-) -> Entity {
-    let font: Handle<Font> = asset_server.load(FONT_PATH);
-
-    commands
-        .spawn(labeled_field_wrapper())
-        .with_child((
-            Text::new(label),
-            TextFont {
-                font: font.into(),
-                font_size: TEXT_SIZE_SM.into(),
-                weight: FontWeight::MEDIUM,
-                ..default()
-            },
-            TextColor(TEXT_MUTED_COLOR.into()),
-        ))
-        .with_child((binding, widget))
-        .id()
 }
 
 fn spawn_labeled_field_scene(
