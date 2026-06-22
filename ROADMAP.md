@@ -48,7 +48,6 @@ implemented in Sprinkles.
     - **EmitterTurbulence**
         - initial_displacement
     - ~~**EmitterSpritesheet**~~[^2]
-    - ~~**VisibilityAabb**~~[^2]
 - **AttractorData**
 
 ## Editor
@@ -78,4 +77,4 @@ implemented in Sprinkles.
 
 [^1]: Eventually.
 
-[^2]: Not planned, personally.
+[^2]: Not personally planning to, but go for it!
