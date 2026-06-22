@@ -27,8 +27,8 @@ use crate::state::{
     PlaybackSeekEvent,
 };
 use crate::ui::components::binding::EmitterWriter;
-use crate::ui::components::toasts::ToastEvent;
 use crate::ui::components::seekbar::SeekbarDragState;
+use crate::ui::components::toasts::ToastEvent;
 use crate::ui::components::viewport::EditorViewport;
 use crate::ui::tokens::PRIMARY_COLOR;
 
